@@ -1,0 +1,64 @@
+{
+  "auth": {
+    "name": "Name",
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "re_password": "Re Password",
+    "forgot_password": "Forgot password ?",
+    "login_with_google": "Login with Google",
+    "register_notice": "New Account",
+    "or": "Or",
+    "register_with_google": "Register With Google",
+    "back_login": "Back Login"
+  },
+  "form_validation": {
+    "password": {
+      "length": {
+        "min":  "Password must be at least {val} characters",
+        "max":"Password cannot exceed {val} characters"
+      },
+      "complexity": "Must contain uppercase, number, and symbol",
+      "match": "Password and re-password must be the same"
+    },
+    "email": {
+      "invalid": "Please enter a valid email address"
+    },
+    "register" : {
+      "success" : "Registration successful, please check your email to verify.",
+      "failure" : "Registration failed, {message}"
+    },
+    "login" : {
+      "success" : "Login successful.",
+      "failure" : "Login failed, {message}"
+    }
+  },
+  "network" : {
+    "rest" : {
+      "error" : "Something went wrong, please try again later.",
+      "401" : ""
+    }
+  },
+  "profile" : {
+    "personal_information" : "User profile",
+    "other" : "Others",
+    "name": "Nama",
+    "email" : "Email",
+    "phone" : "Phone",
+    "address" : "Address",
+    "location" : "Location",
+    "help" : "Help",
+    "about_app" : "About application",
+    "logout" : "Logout",
+    "save" : "Save",
+    "cancel" : "Cancel",
+    "edit" : "Update profile"
+  },
+  "farm" : {
+    "unit" : {
+      "hectare" : "Ha",
+      "meter" : "m²"
+    }
+  }
+}
