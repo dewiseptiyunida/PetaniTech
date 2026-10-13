@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../controllers/shopping_cart_controller.dart';
-import '../models/cart_item_model.dart';
+import '../logic/controllers/shopping_cart_controller.dart';
+import '../logic/models/cart_item_model.dart';
 import 'chat_list_screen.dart';
 import 'checkout_screen.dart';
 

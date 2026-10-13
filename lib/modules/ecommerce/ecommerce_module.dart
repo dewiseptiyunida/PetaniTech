@@ -1,7 +1,7 @@
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:provider/provider.dart';
 import 'package:petanitech_mobile/modules/main/presentation/ecommerce_screen.dart';
-import 'controllers/shopping_cart_controller.dart';
+import 'logic/controllers/shopping_cart_controller.dart';
 
 class EcommerceModule extends Module {
   static const String ecommerceRoute = '/';

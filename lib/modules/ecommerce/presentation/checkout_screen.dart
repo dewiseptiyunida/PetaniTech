@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../controllers/checkout_controller.dart';
-import '../models/checkout_models.dart';
+import '../logic/controllers/checkout_controller.dart';
+import '../logic/models/checkout_models.dart';
 import 'payment/bank_transfer_payment_screen.dart';
 import 'payment/qris_payment_screen.dart';
 
