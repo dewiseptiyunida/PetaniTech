@@ -36,6 +36,12 @@ class Consts {
       "inactive": Icon(Icons.group, color: Colors.white70, size: 20),
     },
     {
+      "url": "/ecommerce",
+      "name": "E-commerce",
+      "active": Icon(Icons.shopping_cart, color: Colors.white, size: 20),
+      "inactive": Icon(Icons.shopping_cart, color: Colors.white70, size: 20),
+    },
+    {
       "url": "/farming",
       "name": "Pertanian",
       "active": Icon(Icons.energy_savings_leaf, color: Colors.white, size: 20),

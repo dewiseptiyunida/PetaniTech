@@ -12,13 +12,14 @@ import 'package:petanitech_mobile/modules/main/presentation/home_screen.dart';
 import 'package:petanitech_mobile/modules/main/presentation/main_screen.dart';
 import 'package:petanitech_mobile/modules/main/presentation/profile_screen.dart';
 import 'package:petanitech_mobile/modules/main/presentation/weather_forecast_page.dart';
+import 'package:petanitech_mobile/modules/main/presentation/ecommerce_screen.dart';
 import 'package:petanitech_mobile/utils/weather/weather.dart';
-
 
 class MainModule extends Module {
   static final String indexRoute = '/';
   static final String homeRoute = '/home';
   static final String communityRoute = '/community';
+  static final String ecommerceRoute = '/ecommerce';
   static final String farmingRoute = '/farming';
   static final String weatherRoute = '/weather';
   static final String profileRoute = '/profile';
@@ -118,6 +119,11 @@ class MainModule extends Module {
           transition: TransitionType.noTransition,
         ),
         ChildRoute(
+          ecommerceRoute,
+          child: (context) => const EcommerceScreen(),
+          transition: TransitionType.noTransition,
+        ),
+        ChildRoute(
           farmingRoute,
           child: (context) => const FarmingScreen(),
           transition: TransitionType.noTransition,
@@ -135,5 +141,4 @@ class MainModule extends Module {
       ],
     );
   }
-
 }
