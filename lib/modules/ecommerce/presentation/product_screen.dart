@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import '../logic/controllers/order_controller.dart';
+import '../logic/controllers/review_controller.dart';
+import '../logic/models/review_model.dart';
 import 'checkout_screen.dart';
 import 'shipping_screen.dart';
 import 'shopping_cart_screen.dart';
 import 'chat_screen.dart';
 import 'store_screen.dart';
+import 'product_reviews_screen.dart';
 
 class ProductScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -20,20 +24,63 @@ class _ProductScreenState extends State<ProductScreen> {
   final Color darkGreen = const Color(0xFF5E963F);
 
   String selectedShipping = 'Pilih pengiriman';
+  int _currentImageIndex = 0;
+  String? _selectedVariant;
+  late final PageController _imagePageController;
+
+  List<IconData> get _productIcons {
+    if (widget.product['icons'] is List) {
+      final list = (widget.product['icons'] as List).whereType<IconData>().toList();
+      if (list.isNotEmpty) return list;
+    }
+    if (widget.product['icon'] is IconData) {
+      return [widget.product['icon'] as IconData];
+    }
+    return [Icons.shopping_bag_outlined];
+  }
+
+  List<Map<String, dynamic>> get _variants {
+    if (widget.product['variants'] is List) {
+      final list = widget.product['variants'] as List;
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  bool get _hasVariants => _variants.isNotEmpty;
+
+  int get _currentPrice {
+    if (_selectedVariant != null) {
+      final found = _variants.firstWhere(
+        (v) => v['name'] == _selectedVariant,
+        orElse: () => <String, dynamic>{},
+      );
+      if (found.isNotEmpty && found['price'] is int) {
+        return found['price'] as int;
+      }
+    }
+    return (widget.product['price'] as num?)?.toInt() ?? 0;
+  }
 
   @override
   void initState() {
     super.initState();
-    ShoppingCartScreen.controller.addListener(_onCartChanged);
+    _imagePageController = PageController();
+    ShoppingCartScreen.controller.addListener(_onStateChanged);
+    ReviewController.instance.addListener(_onStateChanged);
+    OrderController.instance.addListener(_onStateChanged);
   }
 
   @override
   void dispose() {
-    ShoppingCartScreen.controller.removeListener(_onCartChanged);
+    _imagePageController.dispose();
+    ShoppingCartScreen.controller.removeListener(_onStateChanged);
+    ReviewController.instance.removeListener(_onStateChanged);
+    OrderController.instance.removeListener(_onStateChanged);
     super.dispose();
   }
 
-  void _onCartChanged() {
+  void _onStateChanged() {
     if (mounted) setState(() {});
   }
 
@@ -42,33 +89,34 @@ class _ProductScreenState extends State<ProductScreen> {
     final product = widget.product;
     final String productName = product['name'] ?? 'Nama Produk';
     final String category = product['category'] ?? 'Produk';
-    final int price = product['price'] ?? 0;
-    final IconData productIcon = product['icon'] ?? Icons.shopping_bag_outlined;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8F6),
       bottomNavigationBar: _bottomAction(),
       body: CustomScrollView(
         slivers: [
-          _hero(productIcon),
-          SliverToBoxAdapter(child: _productInfo(productName, category, price)),
+          _hero(),
+          SliverToBoxAdapter(
+            child: _productInfo(productName, category, _currentPrice),
+          ),
           SliverToBoxAdapter(child: _shippingSection()),
           SliverToBoxAdapter(child: _descriptionSection(productName, category)),
           SliverToBoxAdapter(child: _storeSection()),
-          SliverToBoxAdapter(child: _reviewSection()),
+          SliverToBoxAdapter(child: _reviewSection(productName, category)),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
       ),
     );
   }
 
-  Widget _hero(IconData productIcon) {
+  Widget _hero() {
+    final icons = _productIcons;
+
     return SliverAppBar(
       expandedHeight: 320,
       pinned: true,
       elevation: 0,
       backgroundColor: primaryGreen,
-
       leading: Padding(
         padding: const EdgeInsets.all(8),
         child: _floatingIcon(
@@ -76,14 +124,11 @@ class _ProductScreenState extends State<ProductScreen> {
           () => Navigator.pop(context),
         ),
       ),
-
       actions: [
         Padding(padding: const EdgeInsets.all(8), child: _cartTopButton()),
       ],
-
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.parallax,
-
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -92,7 +137,6 @@ class _ProductScreenState extends State<ProductScreen> {
               colors: [lightGreen, const Color(0xFFF5F8F1), Colors.white],
             ),
           ),
-
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -101,34 +145,56 @@ class _ProductScreenState extends State<ProductScreen> {
                 left: -55,
                 child: _decorCircle(130, primaryGreen.withOpacity(.10)),
               ),
-
               Positioned(
                 right: -45,
                 bottom: 30,
                 child: _decorCircle(150, darkGreen.withOpacity(.08)),
               ),
 
-              Container(
-                width: 190,
-                height: 190,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: darkGreen.withOpacity(.12),
-                      blurRadius: 28,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
+              // Swipeable Image Carousel
+              SizedBox(
+                height: 220,
+                child: PageView.builder(
+                  controller: _imagePageController,
+                  itemCount: icons.length,
+                  onPageChanged: (index) {
+                    setState(() => _currentImageIndex = index);
+                  },
+                  itemBuilder: (context, index) {
+                    final icon = icons[index];
+                    return Center(
+                      child: Container(
+                        width: 190,
+                        height: 190,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: darkGreen.withOpacity(.12),
+                              blurRadius: 28,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: Icon(icon, size: 100, color: darkGreen),
+                      ),
+                    );
+                  },
                 ),
-                child: Icon(productIcon, size: 100, color: darkGreen),
               ),
 
-              Positioned(
-                bottom: 22,
-                child: Row(children: [_dot(true), _dot(false), _dot(false)]),
-              ),
+              if (icons.length > 1)
+                Positioned(
+                  bottom: 22,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(
+                      icons.length,
+                      (index) => _dot(index == _currentImageIndex),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -137,6 +203,11 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 
   Widget _productInfo(String name, String category, int price) {
+    // Dynamic Stats
+    final avgRating = ReviewController.instance.getAverageRating(name);
+    final reviewCount = ReviewController.instance.getReviewCount(name);
+    final soldCount = OrderController.instance.getSoldCount(name);
+
     return Transform.translate(
       offset: const Offset(0, -12),
       child: Container(
@@ -179,9 +250,7 @@ class _ProductScreenState extends State<ProductScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
             Text(
               name,
               style: const TextStyle(
@@ -190,9 +259,7 @@ class _ProductScreenState extends State<ProductScreen> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-
             const SizedBox(height: 8),
-
             Text(
               'Rp ${_formatPrice(price)}',
               style: TextStyle(
@@ -201,9 +268,9 @@ class _ProductScreenState extends State<ProductScreen> {
                 fontWeight: FontWeight.w900,
               ),
             ),
-
             const SizedBox(height: 13),
 
+            // Dynamic Rating, Review Count, Sold Count
             Row(
               children: [
                 Icon(
@@ -211,42 +278,131 @@ class _ProductScreenState extends State<ProductScreen> {
                   color: Colors.amber.shade700,
                   size: 19,
                 ),
-
                 const SizedBox(width: 4),
-
-                const Text(
-                  '4.8',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                ),
-
-                const SizedBox(width: 5),
-
                 Text(
-                  '125 ulasan',
+                  avgRating > 0 ? avgRating.toStringAsFixed(1) : '-',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '$reviewCount ulasan',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 ),
-
                 _verticalDivider(),
-
                 Icon(
                   Icons.shopping_bag_outlined,
                   color: Colors.grey.shade600,
                   size: 15,
                 ),
-
                 const SizedBox(width: 4),
-
                 Text(
-                  '80+ terjual',
+                  '$soldCount terjual',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 ),
               ],
             ),
+
+            // Variant Selector Section (if product has variants)
+            if (_hasVariants) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1, thickness: 0.8),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Text(
+                    'Pilihan Varian',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  if (_selectedVariant == null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _variants.map((v) {
+                  final vName = v['name']?.toString() ?? '';
+                  final isSelected = _selectedVariant == vName;
+                  final vPrice = (v['price'] as num?)?.toInt();
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedVariant = vName;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected ? lightGreen : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected ? darkGreen : const Color(0xFFDCDFD8),
+                          width: isSelected ? 1.6 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            vName,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight:
+                                  isSelected ? FontWeight.w800 : FontWeight.w600,
+                              color: isSelected ? darkGreen : Colors.black87,
+                            ),
+                          ),
+                          if (vPrice != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'Rp ${_formatPrice(vPrice)}',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
+                                    ? darkGreen
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
 
   Widget _shippingSection() {
     return GestureDetector(
@@ -468,59 +624,71 @@ class _ProductScreenState extends State<ProductScreen> {
     );
   }
 
-  Widget _reviewSection() {
+  Widget _reviewSection(String productName, String category) {
+    final reviews = ReviewController.instance.getReviewsForProduct(productName);
+    final count = ReviewController.instance.getReviewCount(productName);
+
     return _sectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Ulasan Pembeli',
-                  
-
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
               ),
-
               Text(
-                '125 ulasan',
+                '$count ulasan',
                 style: TextStyle(
                   color: darkGreen,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 17),
-
-          _reviewItem(
-            name: 'Andi',
-            rating: 5,
-            comment: 'Produknya bagus dan sesuai dengan deskripsi.',
-          ),
-
-          const Padding(padding: EdgeInsets.symmetric(vertical: 14)),
-
-          _reviewItem(
-            name: 'Siti',
-            rating: 4,
-            comment: 'Pengiriman cukup cepat, produk juga bagus.',
-          ),
-
-          const SizedBox(height: 8),
-
+          const SizedBox(height: 14),
+          if (reviews.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: Text(
+                  'Belum ada ulasan untuk produk ini.',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                ),
+              ),
+            )
+          else ...[
+            for (var i = 0; i < reviews.take(2).length; i++) ...[
+              if (i > 0) const SizedBox(height: 16),
+              _reviewItem(reviews[i]),
+            ],
+          ],
+          const SizedBox(height: 10),
           Center(
             child: TextButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProductReviewsScreen(
+                      productName: productName,
+                      productCategory: category,
+                      variants:
+                          _variants.map((v) => v['name'].toString()).toList(),
+                    ),
+                  ),
+                );
+              },
               child: Text(
                 'Lihat Semua Ulasan  ›',
                 style: TextStyle(
                   color: darkGreen,
                   fontWeight: FontWeight.w800,
-                  fontSize: 12,
+                  fontSize: 12.5,
                 ),
               ),
             ),
@@ -530,22 +698,16 @@ class _ProductScreenState extends State<ProductScreen> {
     );
   }
 
-  Widget _reviewItem({
-    required String name,
-    required int rating,
-    required String comment,
-  }) {
+  Widget _reviewItem(ReviewModel review) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CircleAvatar(
-          radius: 21,
+          radius: 20,
           backgroundColor: lightGreen,
           child: Icon(Icons.person_rounded, color: darkGreen, size: 22),
         ),
-
         const SizedBox(width: 11),
-
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,20 +715,18 @@ class _ProductScreenState extends State<ProductScreen> {
               Row(
                 children: [
                   Text(
-                    name,
+                    review.userName,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-
                   const Spacer(),
-
                   Row(
                     children: List.generate(
                       5,
                       (index) => Icon(
-                        index < rating
+                        index < review.rating
                             ? Icons.star_rounded
                             : Icons.star_outline_rounded,
                         size: 14,
@@ -576,11 +736,28 @@ class _ProductScreenState extends State<ProductScreen> {
                   ),
                 ],
               ),
-
+              if (review.variant != null && review.variant!.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F3EE),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Varian: ${review.variant}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 6),
-
               Text(
-                comment,
+                review.comment,
                 style: TextStyle(
                   color: Colors.grey.shade700,
                   fontSize: 12,
@@ -786,19 +963,12 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 
   void _addToCart() {
-    try {
-      if (widget.product.isEmpty) {
-        _showNotification('Data produk tidak ditemukan.', isError: true);
-        return;
-      }
-
-      ShoppingCartScreen.addToCart(widget.product);
-
-      final productName = widget.product['name'] ?? 'Produk';
-      _showNotification('$productName berhasil dimasukkan ke keranjang');
-    } catch (e) {
-      _showNotification('Gagal menambahkan produk ke keranjang.', isError: true);
+    if (widget.product.isEmpty) {
+      _showNotification('Data produk tidak ditemukan.', isError: true);
+      return;
     }
+
+    _showQuantityBottomSheet(isBuyNow: false);
   }
 
   void _showNotification(String message, {bool isError = false}) {
@@ -831,7 +1001,7 @@ class _ProductScreenState extends State<ProductScreen> {
           backgroundColor: isError ? Colors.redAccent : darkGreen,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 85),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -850,13 +1020,12 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 
   void _buyNow() {
-    _showQuantityBottomSheet();
+    _showQuantityBottomSheet(isBuyNow: true);
   }
 
-  void _showQuantityBottomSheet() {
+  void _showQuantityBottomSheet({bool isBuyNow = true}) {
     int quantity = 1;
-
-    final int price = (widget.product['price'] as num?)?.toInt() ?? 0;
+    String? localVariant = _selectedVariant;
 
     final String productName =
         widget.product['name']?.toString() ?? 'Nama Produk';
@@ -874,7 +1043,19 @@ class _ProductScreenState extends State<ProductScreen> {
       builder: (bottomSheetContext) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final int subtotal = price * quantity;
+            int unitPrice = (widget.product['price'] as num?)?.toInt() ?? 0;
+            if (localVariant != null) {
+              final found = _variants.firstWhere(
+                (v) => v['name'] == localVariant,
+                orElse: () => <String, dynamic>{},
+              );
+              if (found.isNotEmpty && found['price'] is int) {
+                unitPrice = found['price'] as int;
+              }
+            }
+
+            final int subtotal = unitPrice * quantity;
+            final bool needSelectVariant = _hasVariants && localVariant == null;
 
             return SafeArea(
               child: Padding(
@@ -919,16 +1100,18 @@ class _ProductScreenState extends State<ProductScreen> {
                               ),
                               const SizedBox(height: 5),
                               Text(
-                                'Rp ${_formatPrice(price)} / pcs',
+                                'Rp ${_formatPrice(unitPrice)}',
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w900,
                                   color: darkGreen,
                                 ),
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Stok: Tersedia',
+                                localVariant != null
+                                    ? 'Varian: $localVariant'
+                                    : 'Stok: Tersedia',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey.shade600,
@@ -948,7 +1131,86 @@ class _ProductScreenState extends State<ProductScreen> {
                       ],
                     ),
 
-                    const Divider(height: 24, thickness: 0.8),
+                    // Jika produk memiliki varian, tampilkan selector varian wajib
+                    if (_hasVariants) ...[
+                      const Divider(height: 22, thickness: 0.8),
+                      Row(
+                        children: [
+                          const Text(
+                            'Pilih Varian Produk',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          if (localVariant == null)
+                            const Text(
+                              '*Wajib dipilih',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _variants.map((v) {
+                          final vName = v['name']?.toString() ?? '';
+                          final isSelected = localVariant == vName;
+                          final vPrice = (v['price'] as num?)?.toInt();
+
+                          return InkWell(
+                            onTap: () {
+                              setModalState(() {
+                                localVariant = vName;
+                              });
+                              setState(() {
+                                _selectedVariant = vName;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected ? lightGreen : Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? darkGreen
+                                      : Colors.grey.shade300,
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Text(
+                                vPrice != null
+                                    ? '$vName (Rp ${_formatPrice(vPrice)})'
+                                    : vName,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: isSelected
+                                      ? darkGreen
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+
+                    const Divider(height: 22, thickness: 0.8),
 
                     // Pemilihan jumlah
                     Row(
@@ -1064,7 +1326,7 @@ class _ProductScreenState extends State<ProductScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
 
                     // Subtotal
                     Container(
@@ -1099,37 +1361,71 @@ class _ProductScreenState extends State<ProductScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
 
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(bottomSheetContext);
+                        onPressed: needSelectVariant
+                            ? () {
+                                _showNotification(
+                                  'Silakan pilih varian produk terlebih dahulu.',
+                                  isError: true,
+                                );
+                              }
+                            : () {
+                                Navigator.pop(bottomSheetContext);
 
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => CheckoutScreen(
-                                    product: widget.product,
-                                    quantity: quantity,
-                                  ),
-                            ),
-                          );
-                        },
+                                final productData =
+                                    Map<String, dynamic>.from(widget.product);
+                                productData['price'] = unitPrice;
+                                if (localVariant != null) {
+                                  productData['variant'] = localVariant;
+                                }
+
+                                if (isBuyNow) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => CheckoutScreen(
+                                            product: productData,
+                                            quantity: quantity,
+                                            initialShipping:
+                                                selectedShipping !=
+                                                        'Pilih pengiriman'
+                                                    ? selectedShipping
+                                                    : null,
+                                          ),
+                                    ),
+                                  );
+                                } else {
+                                  productData['quantity'] = quantity;
+                                  ShoppingCartScreen.addToCart(productData);
+                                  final vLabel =
+                                      localVariant != null
+                                          ? ' ($localVariant)'
+                                          : '';
+                                  _showNotification(
+                                    '$quantity pcs $productName$vLabel berhasil dimasukkan ke keranjang',
+                                  );
+                                }
+                              },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryGreen,
+                          backgroundColor:
+                              needSelectVariant
+                                  ? Colors.grey.shade400
+                                  : primaryGreen,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text(
-                          'Lanjut Beli Sekarang',
-                          style: TextStyle(
+                        child: Text(
+                          isBuyNow ? 'Beli Sekarang' : 'Masukkan Keranjang',
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
@@ -1264,17 +1560,6 @@ class _ProductScreenState extends State<ProductScreen> {
         builder: (_) => const StoreScreen(
           storeName: 'Toko Tani Sejahtera',
         ),
-      ),
-    );
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

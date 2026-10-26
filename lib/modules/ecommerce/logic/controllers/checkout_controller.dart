@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/checkout_models.dart';
+import '../models/checkout_model.dart';
 
 class CheckoutController extends ChangeNotifier {
   final List<CheckoutItemModel> _checkoutItems = [];
@@ -38,7 +38,7 @@ class CheckoutController extends ChangeNotifier {
   final List<CourierModel> _couriers = const [
     CourierModel(
       name: 'J&T Express',
-      service: 'Reguler (EZ)',
+      service: 'Reguler',
       price: 9000,
       estimate: '2–3 hari',
       icon: Icons.local_shipping_rounded,
@@ -52,7 +52,7 @@ class CheckoutController extends ChangeNotifier {
     ),
     CourierModel(
       name: 'SiCepat Ekspres',
-      service: 'Reguler (SIUNT)',
+      service: 'Reguler',
       price: 11000,
       estimate: '2–3 hari',
       icon: Icons.electric_bolt_rounded,
@@ -89,6 +89,7 @@ class CheckoutController extends ChangeNotifier {
     Map<String, dynamic>? product,
     int? quantity,
     List<Map<String, dynamic>>? items,
+    String? initialCourierName,
   }) {
     orderCreatedAt = DateTime.now();
 
@@ -98,6 +99,16 @@ class CheckoutController extends ChangeNotifier {
       final itemMap = Map<String, dynamic>.from(product);
       itemMap['quantity'] = quantity ?? 1;
       _checkoutItems.add(CheckoutItemModel.fromMap(itemMap));
+    }
+
+    if (initialCourierName != null && initialCourierName.isNotEmpty) {
+      final query = initialCourierName.toLowerCase();
+      final idx = _couriers.indexWhere((c) =>
+          query.contains(c.name.toLowerCase()) ||
+          c.name.toLowerCase().contains(query));
+      if (idx != -1) {
+        _selectedCourierIndex = idx;
+      }
     }
   }
 

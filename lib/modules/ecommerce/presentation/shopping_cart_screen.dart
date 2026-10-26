@@ -67,13 +67,13 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     _showMessage('Produk berhasil dihapus dari keranjang.');
   }
 
-  void _deleteSelected() {
+  void _deleteSelected() async {
     if (_controller.selectedCount == 0) {
       _showMessage('Pilih produk yang ingin dihapus.');
       return;
     }
 
-    final success = _controller.deleteSelected();
+    final success = await _controller.deleteSelected();
     if (success) {
       _showMessage('Produk yang dipilih berhasil dihapus.');
     }
@@ -317,6 +317,26 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                     height: 1.2,
                   ),
                 ),
+                if (item.variant != null && item.variant!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F4EE),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFDFE4DA)),
+                    ),
+                    child: Text(
+                      'Varian: ${item.variant}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: darkGreen,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Text(
                   'Rp ${_formatPrice(item.price)}',

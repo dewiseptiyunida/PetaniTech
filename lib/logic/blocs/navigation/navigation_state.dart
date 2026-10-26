@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum NavigationTab { home, community, farming, weather, profile }
+enum NavigationTab { home, community, ecommerce, farming, weather, profile }
 
 class NavigationState extends Equatable {
   final NavigationTab currentTab;

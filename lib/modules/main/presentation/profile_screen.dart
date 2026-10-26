@@ -5,12 +5,42 @@ import 'package:petanitech_mobile/core/consts.dart';
 import 'package:petanitech_mobile/core/app_theme.dart';
 import 'package:petanitech_mobile/data/models/user_model.dart';
 import 'package:petanitech_mobile/logic/blocs/user/user_bloc.dart';
+import 'package:petanitech_mobile/modules/ecommerce/logic/controllers/order_controller.dart';
+import 'package:petanitech_mobile/modules/ecommerce/logic/models/order_model.dart';
+import 'package:petanitech_mobile/modules/ecommerce/presentation/order_history_screen.dart';
 import 'package:petanitech_mobile/presentation/components/button.dart';
 import 'package:petanitech_mobile/presentation/components/textfield.dart';
 import 'package:petanitech_mobile/utils/client/api_client.dart';
 
-class ProfileScreen extends StatelessWidget {
+const _green = Color(0xFF7CB35A);
+const _lightGreen = Color(0xFFE8F1E2);
+const _darkGreen = Color(0xFF5E963F);
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final OrderController _orderCtrl = orderController;
+
+  @override
+  void initState() {
+    super.initState();
+    _orderCtrl.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    _orderCtrl.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,15 +52,17 @@ class ProfileScreen extends StatelessWidget {
           children: [
             _profileHeader(user),
             const SizedBox(height: 20),
+            _myOrdersSection(context, _orderCtrl),
+            const SizedBox(height: 20),
             _personalInformation(context, user),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             _utilitiesPanel(),
             const SizedBox(height: 40),
           ],
         ),
       );
     } else {
-      return CircularProgressIndicator();
+      return const Center(child: CircularProgressIndicator());
     }
   }
 }
@@ -109,6 +141,198 @@ Widget _personalInformation(BuildContext context, UserModel user) {
   );
 }
 
+// ─── My Orders Section ────────────────────────────────────────────────────────
+
+Widget _myOrdersSection(BuildContext context, OrderController ctrl) {
+  final awaitingCount = ctrl.countByStatus(OrderStatus.awaitingPayment);
+  final processingCount = ctrl.countByStatus(OrderStatus.processing);
+  final shippedCount = ctrl.countByStatus(OrderStatus.shipped);
+  final reviewCount = ctrl.unreviewedCompletedOrders.length;
+
+  void goToHistory([OrderStatus? status]) {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => OrderHistoryScreen(
+          initialStatus: status,
+          controller: ctrl,
+        ),
+      ),
+    );
+  }
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: Consts.padding16),
+    child: Container(
+      decoration: BoxDecoration(
+        color: _lightGreen,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _green.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        children: [
+          // Header row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.receipt_long_rounded,
+                    color: _darkGreen,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Pesanan Saya',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => goToHistory(),
+                  child: const Row(
+                    children: [
+                      Text(
+                        'Lihat Riwayat',
+                        style: TextStyle(
+                          color: _darkGreen,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      SizedBox(width: 2),
+                      Icon(Icons.chevron_right, color: _darkGreen, size: 16),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Shortcut row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 14),
+            child: Row(
+              children: [
+                _orderShortcut(
+                  icon: Icons.payment_rounded,
+                  label: 'Belum Bayar',
+                  badge: awaitingCount,
+                  badgeColor: const Color(0xFFE69B26),
+                  onTap: () => goToHistory(OrderStatus.awaitingPayment),
+                ),
+                _orderShortcut(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Diproses',
+                  badge: processingCount,
+                  badgeColor: const Color(0xFF3978C5),
+                  onTap: () => goToHistory(OrderStatus.processing),
+                ),
+                _orderShortcut(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'Dikirim',
+                  badge: shippedCount,
+                  badgeColor: const Color(0xFF7B61B5),
+                  onTap: () => goToHistory(OrderStatus.shipped),
+                ),
+                _orderShortcut(
+                  icon: Icons.star_outline_rounded,
+                  label: 'Beri Penilaian',
+                  badge: reviewCount,
+                  badgeColor: _darkGreen,
+                  onTap: () => goToHistory(OrderStatus.completed),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _orderShortcut({
+  required IconData icon,
+  required String label,
+  required int badge,
+  required Color badgeColor,
+  required VoidCallback onTap,
+}) {
+  return Expanded(
+    child: GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, size: 26, color: _darkGreen),
+                ),
+                if (badge > 0)
+                  Positioned(
+                    top: -5,
+                    right: -5,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        badge > 99 ? '99+' : '$badge',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 Widget _infoTile(IconData icon, String label, String value) {
   return Container(
     margin: const EdgeInsets.symmetric(vertical: 2),
@@ -180,7 +404,7 @@ Widget _utilitiesPanel() {
           Icons.info_outline,
           tr('profile.about_app'),
           onTap: () {
-            print('clicks');
+            debugPrint('about_app');
           },
         ),
         _utilityTile(

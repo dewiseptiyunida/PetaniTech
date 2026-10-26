@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../logic/controllers/checkout_controller.dart';
-import '../logic/models/checkout_models.dart';
+import '../logic/controllers/order_controller.dart';
+import '../logic/controllers/shopping_cart_controller.dart';
+import '../logic/models/checkout_model.dart';
+import '../logic/models/order_model.dart';
+import 'order_confirmation_screen.dart';
 import 'payment/bank_transfer_payment_screen.dart';
 import 'payment/qris_payment_screen.dart';
 
@@ -8,8 +12,15 @@ class CheckoutScreen extends StatefulWidget {
   final Map<String, dynamic>? product;
   final int? quantity;
   final List<Map<String, dynamic>>? items;
+  final String? initialShipping;
 
-  const CheckoutScreen({super.key, this.product, this.quantity, this.items});
+  const CheckoutScreen({
+    super.key,
+    this.product,
+    this.quantity,
+    this.items,
+    this.initialShipping,
+  });
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -24,6 +35,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   late final CheckoutController _controller;
   late final TextEditingController noteController;
+  bool _isPlacingOrder = false;
 
   @override
   void initState() {
@@ -32,6 +44,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       product: widget.product,
       quantity: widget.quantity,
       items: widget.items,
+      initialCourierName: widget.initialShipping,
     );
     _controller.addListener(_onControllerUpdate);
     noteController = TextEditingController();
@@ -318,6 +331,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             color: Colors.grey.shade600,
                           ),
                         ),
+                        if (item.variant != null && item.variant!.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            'Varian: ${item.variant}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: darkGreen,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -644,14 +668,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           SizedBox(
             height: 48,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               onPressed:
-                  _controller.checkoutItems.isEmpty ? null : _handlePlaceOrder,
-              icon: const Icon(Icons.shopping_bag_rounded, size: 18),
-              label: const Text(
-                'Buat Pesanan',
-                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800),
-              ),
+                  (_controller.checkoutItems.isEmpty || _isPlacingOrder)
+                      ? null
+                      : _handlePlaceOrder,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryGreen,
                 foregroundColor: Colors.white,
@@ -661,6 +682,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
+              child: _isPlacingOrder
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shopping_bag_rounded, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Buat Pesanan',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -1307,11 +1351,78 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // PLACE ORDER
   // ============================================================
 
-  void _handlePlaceOrder() {
-    final orderNumber = _controller.generateOrderNumber();
+  Future<void> _handlePlaceOrder() async {
+    if (_isPlacingOrder) return;
+    if (_controller.checkoutItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada produk untuk diproses.')),
+      );
+      return;
+    }
 
-    if (_controller.selectedPaymentType == 'cod') {
-      _showCodSuccessDialog(orderNumber);
+    setState(() => _isPlacingOrder = true);
+
+    final orderNumber = _controller.generateOrderNumber();
+    final isCod = _controller.selectedPaymentType == 'cod';
+
+    final orderItems = _controller.checkoutItems.map((item) {
+      return OrderItemModel(
+        productName: item.name,
+        category: item.category,
+        price: item.price,
+        quantity: item.quantity,
+        icon: item.icon,
+        variant: item.variant,
+      );
+    }).toList();
+
+    final newOrder = OrderModel(
+      id: orderNumber,
+      shopName: _controller.shopName,
+      createdAt: _controller.orderCreatedAt,
+      status: isCod ? OrderStatus.processing : OrderStatus.awaitingPayment,
+      paymentStatus:
+          isCod ? 'Belum Dibayar (Bayar di Tempat)' : 'Menunggu Pembayaran',
+      items: orderItems,
+      receiver: _controller.currentAddress.receiver,
+      phone: _controller.currentAddress.phone,
+      shippingAddress: _controller.currentAddress.fullAddress,
+      courier: _controller.currentCourier.name,
+      courierService: _controller.currentCourier.service,
+      trackingNumber: isCod
+          ? 'PT-TRK-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}'
+          : '',
+      paymentMethod: _controller.currentPaymentTitle,
+      paymentExpiresAt: _controller.selectedPaymentType == 'qris'
+          ? DateTime.now().add(const Duration(minutes: 10))
+          : null,
+      shippingCost: _controller.shippingCost,
+      serviceFee: _controller.serviceFee,
+    );
+
+    // Simpan pesanan ke OrderController (dan local storage SharedPreferences)
+    await orderController.addOrder(newOrder);
+
+    // Jika checkout berasal dari keranjang, hapus item yang berhasil dipesan (cocokkan nama & varian)
+    if (widget.items != null && widget.items!.isNotEmpty) {
+      final itemsWithVariants = _controller.checkoutItems
+          .map((e) => {'name': e.name, 'variant': e.variant})
+          .toList();
+      ShoppingCartController.instance
+          .removeCheckedOutItemsWithVariants(itemsWithVariants);
+    }
+
+    if (mounted) {
+      setState(() => _isPlacingOrder = false);
+    }
+
+    if (isCod) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderConfirmationScreen(order: newOrder),
+        ),
+      );
       return;
     }
 
@@ -1329,118 +1440,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               totalAmount: _controller.grandTotal,
             );
 
-    Navigator.push<bool>(
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => paymentScreen),
-    ).then((result) {
-      if (result == true && mounted) Navigator.pop(context, true);
-    });
-  }
-
-  void _showCodSuccessDialog(String orderNumber) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (dialogContext) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      color: lightGreen,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.check_circle_rounded,
-                      color: darkGreen,
-                      size: 44,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Pesanan Berhasil Dibuat!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'No. Pesanan: $orderNumber',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: darkGreen,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: lightGreen.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: primaryGreen.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          color: darkGreen,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Bayar tunai kepada kurir saat pesanan tiba. Siapkan uang pas untuk memudahkan transaksi.',
-                            style: TextStyle(fontSize: 11.5, height: 1.45),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _summaryRow(
-                    'Total Bayar (COD)',
-                    'Rp ${_controller.formatPrice(_controller.grandTotal)}',
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                        Navigator.pop(context, true);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryGreen,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text(
-                        'Kembali ke Belanja',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
     );
   }
 }

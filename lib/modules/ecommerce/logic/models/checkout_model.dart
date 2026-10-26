@@ -102,6 +102,7 @@ class CheckoutItemModel {
   final IconData icon;
   final int quantity;
   final String shopName;
+  final String? variant;
 
   const CheckoutItemModel({
     required this.name,
@@ -110,6 +111,7 @@ class CheckoutItemModel {
     required this.icon,
     this.quantity = 1,
     this.shopName = 'Tani Makmur Official Store',
+    this.variant,
   });
 
   int get subtotal => price * quantity;
@@ -125,12 +127,16 @@ class CheckoutItemModel {
       icon:
           map['icon'] is IconData
               ? map['icon'] as IconData
-              : Icons.shopping_bag_outlined,
+              : (map['iconCodePoint'] is int
+                  ? IconData(map['iconCodePoint'] as int,
+                      fontFamily: 'MaterialIcons')
+                  : Icons.shopping_bag_outlined),
       quantity:
           (map['quantity'] as num?)?.toInt() ??
           int.tryParse('${map['quantity']}') ??
           1,
       shopName: map['shopName']?.toString() ?? 'Tani Makmur Official Store',
+      variant: map['variant']?.toString(),
     );
   }
 
@@ -142,6 +148,7 @@ class CheckoutItemModel {
       'icon': icon,
       'quantity': quantity,
       'shopName': shopName,
+      'variant': variant,
     };
   }
 }

@@ -4,6 +4,8 @@ import 'package:petanitech_mobile/modules/ecommerce/presentation/search_screen.d
 import 'package:petanitech_mobile/modules/ecommerce/presentation/product_screen.dart';
 import 'package:petanitech_mobile/modules/ecommerce/presentation/shopping_cart_screen.dart';
 import 'package:petanitech_mobile/modules/ecommerce/presentation/chat_list_screen.dart';
+import 'package:petanitech_mobile/modules/ecommerce/logic/controllers/order_controller.dart';
+import 'package:petanitech_mobile/modules/ecommerce/logic/controllers/review_controller.dart';
 
 class EcommerceScreen extends StatefulWidget {
   const EcommerceScreen({super.key});
@@ -79,36 +81,87 @@ class _EcommerceScreenState extends State<EcommerceScreen> {
       'category': 'Pupuk',
       'price': 75000,
       'icon': Icons.grass_rounded,
+      'icons': [
+        Icons.grass_rounded,
+        Icons.grain_rounded,
+        Icons.eco_rounded,
+      ],
+      'variants': [
+        {'name': '1 Kg', 'price': 75000},
+        {'name': '5 Kg', 'price': 345000},
+        {'name': '25 Kg', 'price': 1600000},
+      ],
     },
     {
       'name': 'Benih Padi Unggul',
       'category': 'Benih',
       'price': 45000,
       'icon': Icons.spa_rounded,
+      'icons': [
+        Icons.spa_rounded,
+        Icons.agriculture_rounded,
+        Icons.yard_rounded,
+      ],
+      'variants': [
+        {'name': 'Kemasan 1 Kg', 'price': 45000},
+        {'name': 'Kemasan 5 Kg', 'price': 210000},
+      ],
     },
     {
       'name': 'Pestisida Tanaman',
       'category': 'Pestisida',
       'price': 65000,
       'icon': Icons.science_outlined,
+      'icons': [
+        Icons.science_outlined,
+        Icons.clean_hands_rounded,
+        Icons.biotech_rounded,
+      ],
+      'variants': [
+        {'name': '250 ml', 'price': 65000},
+        {'name': '500 ml', 'price': 120000},
+        {'name': '1 Liter', 'price': 225000},
+      ],
     },
     {
       'name': 'Cangkul Besi',
       'category': 'Alat Pertanian',
       'price': 85000,
       'icon': Icons.agriculture_rounded,
+      'icons': [
+        Icons.agriculture_rounded,
+        Icons.handyman_rounded,
+      ],
+      // Tanpa varian (produk standar)
     },
     {
       'name': 'Media Tanam Organik',
       'category': 'Media Tanam',
       'price': 35000,
       'icon': Icons.yard_rounded,
+      'icons': [
+        Icons.yard_rounded,
+        Icons.compost_rounded,
+        Icons.grass_rounded,
+      ],
+      'variants': [
+        {'name': 'Karung 5 Kg', 'price': 35000},
+        {'name': 'Karung 15 Kg', 'price': 90000},
+      ],
     },
     {
       'name': 'Pupuk Organik',
       'category': 'Pupuk',
       'price': 55000,
       'icon': Icons.grass_rounded,
+      'icons': [
+        Icons.grass_rounded,
+        Icons.eco_rounded,
+      ],
+      'variants': [
+        {'name': 'Kemasan 2 Kg', 'price': 55000},
+        {'name': 'Kemasan 10 Kg', 'price': 250000},
+      ],
     },
   ];
 
@@ -116,11 +169,15 @@ class _EcommerceScreenState extends State<EcommerceScreen> {
   void initState() {
     super.initState();
     ShoppingCartScreen.controller.addListener(_onCartChanged);
+    orderController.addListener(_onCartChanged);
+    reviewController.addListener(_onCartChanged);
   }
 
   @override
   void dispose() {
     ShoppingCartScreen.controller.removeListener(_onCartChanged);
+    orderController.removeListener(_onCartChanged);
+    reviewController.removeListener(_onCartChanged);
     searchController.dispose();
     super.dispose();
   }
@@ -519,6 +576,10 @@ class _EcommerceScreenState extends State<EcommerceScreen> {
   }
 
   Widget _productCard(Map<String, dynamic> product) {
+    final pName = product['name']?.toString() ?? '';
+    final dynamicRating = ReviewController.instance.getAverageRating(pName);
+    final dynamicSold = OrderController.instance.getSoldCount(pName);
+
     return GestureDetector(
       onTap: () {
         Navigator.of(context, rootNavigator: true).push(
@@ -618,9 +679,18 @@ class _EcommerceScreenState extends State<EcommerceScreen> {
                     children: [
                       Icon(Icons.star_rounded, color: Colors.amber.shade700, size: 15),
                       const SizedBox(width: 3),
-                      const Text(
-                        '4.8',
-                        style: TextStyle(color: Colors.grey, fontSize: 11),
+                      Text(
+                        dynamicRating > 0 ? dynamicRating.toStringAsFixed(1) : '-',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '• $dynamicSold terjual',
+                        style: const TextStyle(color: Colors.grey, fontSize: 10),
                       ),
                       const Spacer(),
                       Icon(

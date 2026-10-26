@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../logic/controllers/order_controller.dart';
+import '../../logic/models/order_model.dart';
 
 class QrisPaymentScreen extends StatefulWidget {
   final String orderNumber;
@@ -22,22 +24,38 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
   final Color bgGrey = const Color(0xFFF7F8F6);
 
   Timer? _timer;
-  int _secondsRemaining = 899;
+  late DateTime _paymentExpiresAt;
+  int _secondsRemaining = 0;
 
   @override
   void initState() {
     super.initState();
-    _startTimer();
+    final order = orderController.findById(widget.orderNumber);
+    // Gunakan waktu kedaluwarsa dari pesanan yang sama agar membuka ulang
+    // halaman QRIS tidak memulai ulang hitung mundur.
+    _paymentExpiresAt = order?.paymentExpiresAt ??
+        order?.createdAt.add(const Duration(minutes: 10)) ??
+        DateTime.now().add(const Duration(minutes: 10));
+    _updateRemainingTime();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(_updateRemainingTime);
+      if (_secondsRemaining <= 0) {
+        _timer?.cancel();
+        final order = orderController.findById(widget.orderNumber);
+        if (order != null && order.status == OrderStatus.awaitingPayment) {
+          orderController.cancelOrder(
+            widget.orderNumber,
+            reason: 'Waktu pembayaran QRIS telah habis',
+          );
+        }
+      }
+    });
   }
 
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining <= 0) {
-        timer.cancel();
-        return;
-      }
-      if (mounted) setState(() => _secondsRemaining--);
-    });
+  void _updateRemainingTime() {
+    final remaining = _paymentExpiresAt.difference(DateTime.now()).inSeconds;
+    _secondsRemaining = remaining > 0 ? remaining : 0;
   }
 
   @override
@@ -75,17 +93,11 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
     return Scaffold(
       backgroundColor: bgGrey,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context, true),
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.black87,
-            size: 19,
-          ),
-        ),
+        centerTitle: true,
         title: const Text(
           'Pembayaran QRIS',
           style: TextStyle(
@@ -94,7 +106,6 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        centerTitle: true,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
@@ -162,7 +173,7 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
               Text(
                 _secondsRemaining == 0
                     ? 'Kode QR telah kedaluwarsa'
-                    : 'Kode QR akan kedaluwarsa dalam 15 menit',
+                    : 'Kode QR akan kedaluwarsa dalam 10 menit',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],
@@ -461,6 +472,11 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
     ),
   );
 
+  void _payLater() {
+    // Pesanan sudah disimpan saat checkout. Kembali tanpa membuat transaksi baru.
+    Navigator.pop(context);
+  }
+
   Widget _buildBottomAction() => SafeArea(
     top: false,
     child: Container(
@@ -479,19 +495,18 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
       child: SizedBox(
         width: double.infinity,
         height: 48,
-        child: ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primaryGreen,
-            foregroundColor: Colors.white,
-            elevation: 0,
+        child: OutlinedButton(
+          onPressed: _payLater,
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: primaryGreen),
+            foregroundColor: darkGreen,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),
           ),
           child: const Text(
             'Bayar Nanti',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
           ),
         ),
       ),

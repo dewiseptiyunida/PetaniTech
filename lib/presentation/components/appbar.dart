@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:petanitech_mobile/core/app_module.dart';
 import 'package:petanitech_mobile/core/app_theme.dart';
 import 'package:petanitech_mobile/core/assets.dart';
 import 'package:petanitech_mobile/core/consts.dart';
 import 'package:petanitech_mobile/logic/blocs/navigation/navigation_bloc.dart';
+import 'package:petanitech_mobile/logic/blocs/navigation/navigation_event.dart';
 import 'package:petanitech_mobile/logic/blocs/navigation/navigation_state.dart';
 import 'package:petanitech_mobile/logic/blocs/user/user_bloc.dart';
+import 'package:petanitech_mobile/modules/main/main_module.dart';
 import 'package:petanitech_mobile/utils/client/api_client.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -76,19 +79,31 @@ class PTAppBar extends StatelessWidget implements PreferredSizeWidget {
                 builder: (context, stateNav) {
                   if (stateNav.currentTab != NavigationTab.profile) {
                     if (state is UserLoaded) {
-                      return Container(
-                        margin: const EdgeInsets.only(right: Consts.padding16),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: CircleAvatar(
-                          backgroundImage:
-                              state.user.avatar != null
-                                  ? NetworkImage(
-                                    ApiClient.getAsset(state.user.avatar!),
-                                  )
-                                  : const AssetImage(PTAsset.logo),
+                      return GestureDetector(
+                        onTap: () {
+                          Modular.get<NavigationBloc>().add(
+                            const NavigationSelectTab(
+                              tab: NavigationTab.profile,
+                            ),
+                          );
+                          Modular.to.navigate(
+                            '${AppModule.mainRoute}${MainModule.profileRoute}',
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(right: Consts.padding16),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            backgroundImage:
+                                state.user.avatar != null
+                                    ? NetworkImage(
+                                      ApiClient.getAsset(state.user.avatar!),
+                                    )
+                                    : const AssetImage(PTAsset.logo),
+                          ),
                         ),
                       );
                     } else {

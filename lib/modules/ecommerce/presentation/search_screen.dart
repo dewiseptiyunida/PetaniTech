@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../logic/controllers/order_controller.dart';
+import '../logic/controllers/review_controller.dart';
 import 'product_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -19,6 +21,7 @@ class _SearchScreenState extends State<SearchScreen> {
   late TextEditingController searchController;
   final ImagePicker imagePicker = ImagePicker();
   String searchQuery = '';
+  XFile? _selectedSearchImage;
 
   final List<Map<String, dynamic>> products = [
     {
@@ -78,20 +81,22 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
-  Future<void> _openCamera() async {
+  Future<void> _pickSearchImage(ImageSource source) async {
     try {
       final XFile? image = await imagePicker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         imageQuality: 80,
       );
 
-      if (image == null) return;
-      if (!mounted) return;
+      if (image == null || !mounted) return;
+      setState(() => _selectedSearchImage = image);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Foto berhasil diambil. Pencarian berdasarkan foto akan diproses.',
+          content: Text(
+            source == ImageSource.camera
+                ? 'Foto berhasil diambil.'
+                : 'Foto berhasil dipilih dari galeri.',
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: darkGreen,
@@ -102,11 +107,12 @@ class _SearchScreenState extends State<SearchScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            'Kamera tidak dapat digunakan pada perangkat ini.',
+          content: Text(
+            source == ImageSource.camera
+                ? 'Kamera tidak dapat digunakan pada perangkat ini.'
+                : 'Galeri tidak dapat dibuka pada perangkat ini.',
           ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: darkGreen,
@@ -116,6 +122,55 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       );
     }
+  }
+
+  void _showImageSourcePicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Cari dengan Gambar',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              ListTile(
+                leading: Icon(Icons.camera_alt_rounded, color: darkGreen),
+                title: const Text('Ambil foto dari kamera'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickSearchImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library_rounded, color: darkGreen),
+                title: const Text('Pilih gambar dari galeri'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickSearchImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -209,7 +264,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                           ),
                           IconButton(
-                            onPressed: _openCamera,
+                            onPressed: _showImageSourcePicker,
                             padding: EdgeInsets.zero,
                             splashRadius: 20,
                             icon: Icon(
@@ -226,6 +281,34 @@ class _SearchScreenState extends State<SearchScreen> {
                 ],
               ),
             ),
+            if (_selectedSearchImage != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.image_rounded, color: darkGreen, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Gambar dipilih: ${_selectedSearchImage!.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: darkGreen,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Hapus gambar',
+                      onPressed: () => setState(() => _selectedSearchImage = null),
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child:
                   filteredProducts.isEmpty
@@ -235,12 +318,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         slivers: [
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                18,
-                                22,
-                                18,
-                                13,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(18,22,18,13),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
@@ -254,14 +332,6 @@ class _SearchScreenState extends State<SearchScreen> {
                                           style: TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          'Menampilkan produk untuk kata kunci:',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                            fontSize: 11,
                                           ),
                                         ),
                                       ],
@@ -289,50 +359,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                             ),
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.shade200,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.search_rounded,
-                                      color: darkGreen,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 7),
-                                    Flexible(
-                                      child: Text(
-                                        '“${searchController.text}”',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: darkGreen,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
+                            padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
                             sliver: SliverGrid(
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) =>
@@ -391,6 +419,10 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _productCard(Map<String, dynamic> product) {
+    final pName = product['name']?.toString() ?? '';
+    final dynamicRating = ReviewController.instance.getAverageRating(pName);
+    final dynamicSold = OrderController.instance.getSoldCount(pName);
+
     return GestureDetector(
       onTap: () {
         Navigator.of(context, rootNavigator: true).push(
@@ -507,9 +539,18 @@ class _SearchScreenState extends State<SearchScreen> {
                         size: 15,
                       ),
                       const SizedBox(width: 3),
-                      const Text(
-                        '4.8',
-                        style: TextStyle(color: Colors.grey, fontSize: 11),
+                      Text(
+                        dynamicRating > 0 ? dynamicRating.toStringAsFixed(1) : '-',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '• $dynamicSold terjual',
+                        style: const TextStyle(color: Colors.grey, fontSize: 10),
                       ),
                       const Spacer(),
                       Icon(
