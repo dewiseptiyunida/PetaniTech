@@ -1,0 +1,1 @@
+export { PromotionsScreen } from '@/screens/store/PromotionsScreen';

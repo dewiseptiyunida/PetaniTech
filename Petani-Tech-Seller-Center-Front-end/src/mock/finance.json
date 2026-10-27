@@ -1,0 +1,64 @@
+{
+  "summary": {
+    "availableBalance": 8500000,
+    "monthlyRevenue": 15200000,
+    "pendingBalance": 1605000,
+    "totalWithdrawn": 34500000
+  },
+  "transactions": [
+    {
+      "id": "TX-20261007-01",
+      "referenceNo": "WD-882190",
+      "date": "07 Okt 2026, 15:30",
+      "type": "Pencairan",
+      "amount": -2500000,
+      "status": "Berhasil",
+      "description": "Penarikan saldo ke Rekening BRI 0123-***-50-8"
+    },
+    {
+      "id": "TX-20261006-02",
+      "referenceNo": "ORD-#PT20261005",
+      "date": "06 Okt 2026, 17:45",
+      "type": "Penjualan",
+      "amount": 750000,
+      "status": "Berhasil",
+      "description": "Pencairan pesanan selesai #PT20261005 - Tani Jaya Karawang"
+    },
+    {
+      "id": "TX-20261006-01",
+      "referenceNo": "FEE-449102",
+      "date": "06 Okt 2026, 17:45",
+      "type": "Biaya Layanan",
+      "amount": -15000,
+      "status": "Berhasil",
+      "description": "Biaya layanan transaksi 2% pesanan #PT20261005"
+    },
+    {
+      "id": "TX-20261005-01",
+      "referenceNo": "ORD-#PT20261000",
+      "date": "05 Okt 2026, 11:20",
+      "type": "Penjualan",
+      "amount": 2600000,
+      "status": "Berhasil",
+      "description": "Pencairan pesanan selesai #PT20261000 - Gapoktan Maju Bersama"
+    },
+    {
+      "id": "TX-20261004-02",
+      "referenceNo": "WD-881900",
+      "date": "04 Okt 2026, 09:15",
+      "type": "Pencairan",
+      "amount": -5000000,
+      "status": "Berhasil",
+      "description": "Penarikan saldo ke Rekening BRI 0123-***-50-8"
+    },
+    {
+      "id": "TX-20261003-01",
+      "referenceNo": "PRM-991204",
+      "date": "03 Okt 2026, 14:00",
+      "type": "Cashback Promo",
+      "amount": 100000,
+      "status": "Berhasil",
+      "description": "Bonus Insentif Seller Aktif Kampanye Musim Tanam Oktober"
+    }
+  ]
+}

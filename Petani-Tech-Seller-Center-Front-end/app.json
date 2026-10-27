@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Petani Tech Seller",
+    "slug": "petani-tech-seller",
+    "scheme": "petanitech",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.anonymous.petanitechseller"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

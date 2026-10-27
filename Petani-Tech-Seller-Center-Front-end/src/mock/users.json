@@ -1,0 +1,28 @@
+{
+  "user": {
+    "id": "usr-seller-fahda",
+    "name": "Fahda Febriya",
+    "email": "fahda@petanitech.id",
+    "phone": "0812-3456-7890",
+    "role": "seller",
+    "storeName": "Toko Tani Makmur Fahda",
+    "storeId": "ID-AGRO-INDRAMAYU-01",
+    "status": "Seller Terverifikasi",
+    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+    "storeAddress": "Jl. Raya Indramayu - Cirebon No. 88, Kec. Jatibarang, Kab. Indramayu, Jawa Barat 45214",
+    "joinedDate": "Januari 2025",
+    "rating": 4.95,
+    "totalReview": 1280,
+    "balance": 12850000,
+    "bankAccount": {
+      "bankName": "Bank Rakyat Indonesia (BRI)",
+      "accountNumber": "4321-01-098765-53-2",
+      "accountHolder": "FAHDA FEBRIYA"
+    }
+  },
+  "credentials": {
+    "email": "fahda@petanitech.id",
+    "password": "123456"
+  }
+}
+

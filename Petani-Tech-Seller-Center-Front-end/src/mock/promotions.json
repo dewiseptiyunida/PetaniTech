@@ -1,0 +1,58 @@
+[
+  {
+    "id": "PRM-001",
+    "name": "Promo Musim Tanam Serempak",
+    "type": "Diskon Produk",
+    "discountType": "percentage",
+    "discountValue": 20,
+    "minPurchase": 100000,
+    "startDate": "01 Okt 2026",
+    "endDate": "31 Okt 2026",
+    "status": "Aktif",
+    "targetCategory": "Pupuk & Benih",
+    "usedCount": 142,
+    "totalQuota": 500
+  },
+  {
+    "id": "PRM-002",
+    "name": "Voucher Subsidi Ongkir Kargo Tani",
+    "type": "Voucher",
+    "discountType": "fixed",
+    "discountValue": 25000,
+    "minPurchase": 300000,
+    "startDate": "05 Okt 2026",
+    "endDate": "25 Okt 2026",
+    "status": "Aktif",
+    "targetCategory": "Semua Kategori",
+    "usedCount": 89,
+    "totalQuota": 200
+  },
+  {
+    "id": "PRM-003",
+    "name": "Campaign Kilat Sprayer & Mekanisasi",
+    "type": "Campaign",
+    "discountType": "percentage",
+    "discountValue": 15,
+    "minPurchase": 250000,
+    "startDate": "15 Okt 2026",
+    "endDate": "18 Okt 2026",
+    "status": "Akan Datang",
+    "targetCategory": "Alat Pertanian",
+    "usedCount": 0,
+    "totalQuota": 100
+  },
+  {
+    "id": "PRM-004",
+    "name": "Flash Sale Pestisida Organik Panen Raya",
+    "type": "Diskon Produk",
+    "discountType": "percentage",
+    "discountValue": 25,
+    "minPurchase": 50000,
+    "startDate": "20 Sep 2026",
+    "endDate": "30 Sep 2026",
+    "status": "Berakhir",
+    "targetCategory": "Pestisida",
+    "usedCount": 350,
+    "totalQuota": 350
+  }
+]

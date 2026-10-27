@@ -1,0 +1,73 @@
+{
+  "summary": {
+    "totalVisitors": 4820,
+    "conversionRate": 3.8,
+    "totalOrders": 184,
+    "averageOrderValue": 450000
+  },
+  "dailyData": [
+    { "date": "01 Okt", "penjualan": 1250000, "pesanan": 6, "pengunjung": 380 },
+    { "date": "02 Okt", "penjualan": 2100000, "pesanan": 9, "pengunjung": 520 },
+    { "date": "03 Okt", "penjualan": 1800000, "pesanan": 7, "pengunjung": 460 },
+    { "date": "04 Okt", "penjualan": 3400000, "pesanan": 14, "pengunjung": 680 },
+    { "date": "05 Okt", "penjualan": 2900000, "pesanan": 11, "pengunjung": 590 },
+    { "date": "06 Okt", "penjualan": 4100000, "pesanan": 18, "pengunjung": 810 },
+    { "date": "07 Okt", "penjualan": 3850000, "pesanan": 15, "pengunjung": 740 }
+  ],
+  "weeklyData": [
+    { "week": "Minggu 1", "penjualan": 8200000, "pesanan": 35, "pengunjung": 1850 },
+    { "week": "Minggu 2", "penjualan": 11400000, "pesanan": 48, "pengunjung": 2400 },
+    { "week": "Minggu 3", "penjualan": 14200000, "pesanan": 62, "pengunjung": 3100 },
+    { "week": "Minggu 4", "penjualan": 19500000, "pesanan": 84, "pengunjung": 4200 }
+  ],
+  "monthlyData": [
+    { "month": "Mei", "penjualan": 16200000, "pesanan": 72, "pengunjung": 3800 },
+    { "month": "Jun", "penjualan": 18500000, "pesanan": 85, "pengunjung": 4200 },
+    { "month": "Jul", "penjualan": 21000000, "pesanan": 96, "pengunjung": 5100 },
+    { "month": "Agu", "penjualan": 23400000, "pesanan": 110, "pengunjung": 5800 },
+    { "month": "Sep", "penjualan": 24800000, "pesanan": 122, "pengunjung": 6200 },
+    { "month": "Okt", "penjualan": 25500000, "pesanan": 134, "pengunjung": 6700 }
+  ],
+  "topProducts": [
+    {
+      "id": "prod-001",
+      "name": "Pupuk Organik Premium Granul 25kg",
+      "category": "Pupuk",
+      "soldCount": 420,
+      "revenue": 31500000,
+      "growth": 25.4
+    },
+    {
+      "id": "prod-005",
+      "name": "Pupuk NPK Mutiara 16-16-16 Sak 50kg",
+      "category": "Pupuk",
+      "soldCount": 340,
+      "revenue": 176800000,
+      "growth": 18.2
+    },
+    {
+      "id": "prod-004",
+      "name": "Benih Padi Ciherang Unggul Sertifikasi 5kg",
+      "category": "Benih",
+      "soldCount": 610,
+      "revenue": 57950000,
+      "growth": 31.0
+    },
+    {
+      "id": "prod-002",
+      "name": "Pestisida Bio Natural Ekstrak Mimba 1 Liter",
+      "category": "Pestisida",
+      "soldCount": 280,
+      "revenue": 23800000,
+      "growth": 14.5
+    },
+    {
+      "id": "prod-003",
+      "name": "Sprayer Elektrik Pertanian 16 Liter Baterai Lithium",
+      "category": "Alat Pertanian",
+      "soldCount": 95,
+      "revenue": 33250000,
+      "growth": 9.8
+    }
+  ]
+}

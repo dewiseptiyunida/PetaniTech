@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8faf6;
+  --foreground: #1c2b18;
+  --pt-primary: #51932e;
+  --pt-primary-hover: #437d26;
+  --pt-primary-dark: #355226;
+  --pt-accent: #7db360;
+  --pt-forest: #1b3216;
+  --pt-surface: #ffffff;
+  --pt-border: #e2edd9;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-pt-primary: var(--pt-primary);
+  --color-pt-primary-hover: var(--pt-primary-hover);
+  --color-pt-primary-dark: var(--pt-primary-dark);
+  --color-pt-accent: var(--pt-accent);
+  --color-pt-forest: var(--pt-forest);
+  --color-pt-surface: var(--pt-surface);
+  --color-pt-border: var(--pt-border);
+  --font-sans: var(--font-poppins), 'Poppins', system-ui, -apple-system, sans-serif;
+  --font-poppins: var(--font-poppins), 'Poppins', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-poppins), 'Poppins', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar styled for PetaniTech theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f6ed;
+}
+::-webkit-scrollbar-thumb {
+  background: #c3dcbc;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9fc694;
+}
+

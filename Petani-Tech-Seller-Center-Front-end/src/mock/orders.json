@@ -1,0 +1,170 @@
+[
+  {
+    "id": "PT20261001",
+    "orderNumber": "#PT20261001",
+    "buyerName": "Toko Tani Makmur",
+    "buyerPhone": "0812-3456-7890",
+    "buyerAddress": "Jl. Raya Pertanian No. 45, Pagaden, Subang, Jawa Barat 41252",
+    "status": "Diproses",
+    "items": [
+      {
+        "productId": "prod-007",
+        "productName": "Pupuk NPK",
+        "category": "Pupuk",
+        "quantity": 2,
+        "unitPrice": 450000,
+        "subtotal": 900000,
+        "productImage": "asset:pupukNpk",
+        "unit": "Sak (50kg)"
+      }
+    ],
+    "totalAmount": 900000,
+    "shippingFee": 35000,
+    "courier": "AgroCargo Express (Kargo Cepat)",
+    "trackingNumber": "AGC-SBG-99210",
+    "createdAt": "2026-10-07 14:20",
+    "paymentMethod": "Saldo Petani Tech / Transfer Bank",
+    "note": "Mohon dilapisi plastik ekstra anti hujan saat pengiriman."
+  },
+  {
+    "id": "PT20261002",
+    "orderNumber": "#PT20261002",
+    "buyerName": "Kelompok Tani Subur Makmur",
+    "buyerPhone": "0857-1122-3344",
+    "buyerAddress": "Desa Sukamandi Jaya RT 03/02, Ciasem, Subang",
+    "status": "Diproses",
+    "items": [
+      {
+        "productId": "prod-001",
+        "productName": "Bionava",
+        "category": "Pupuk",
+        "quantity": 4,
+        "unitPrice": 85000,
+        "subtotal": 340000,
+        "productImage": "asset:bionava",
+        "unit": "Botol (1 Liter)"
+      },
+      {
+        "productId": "prod-004",
+        "productName": "Grao Verde",
+        "category": "Pupuk",
+        "quantity": 2,
+        "unitPrice": 110000,
+        "subtotal": 220000,
+        "productImage": "asset:graoVerde",
+        "unit": "Botol (1 Liter)"
+      }
+    ],
+    "totalAmount": 560000,
+    "shippingFee": 40000,
+    "courier": "J&T Cargo Pertanian",
+    "trackingNumber": "JT-PTN-88421",
+    "createdAt": "2026-10-07 11:45",
+    "paymentMethod": "BCA Virtual Account",
+    "note": "Kirim sore ini jika memungkinkan Pak Fahda."
+  },
+  {
+    "id": "PT20261003",
+    "orderNumber": "#PT20261003",
+    "buyerName": "Haji Mansyur Agro",
+    "buyerPhone": "0819-7766-5544",
+    "buyerAddress": "Kecamatan Compreng, Kab. Subang, Jawa Barat",
+    "status": "Menunggu Pembayaran",
+    "items": [
+      {
+        "productId": "prod-009",
+        "productName": "Sprayer",
+        "category": "Alat Pertanian",
+        "quantity": 1,
+        "unitPrice": 320000,
+        "subtotal": 320000,
+        "productImage": "asset:sprayer",
+        "unit": "Unit (16 Liter)"
+      }
+    ],
+    "totalAmount": 320000,
+    "shippingFee": 20000,
+    "courier": "SiCepat Agro",
+    "createdAt": "2026-10-07 17:10",
+    "paymentMethod": "Mandiri Livin Virtual Account"
+  },
+  {
+    "id": "PT20261004",
+    "orderNumber": "#PT20261004",
+    "buyerName": "CV Berkah Tani Mandiri",
+    "buyerPhone": "0821-9988-7711",
+    "buyerAddress": "Jl. Ahmad Yani No. 12, Indramayu, Jawa Barat",
+    "status": "Dikirim",
+    "items": [
+      {
+        "productId": "prod-006",
+        "productName": "Prosil",
+        "category": "Pestisida",
+        "quantity": 5,
+        "unitPrice": 135000,
+        "subtotal": 675000,
+        "productImage": "asset:prosil",
+        "unit": "Botol (500ml)"
+      }
+    ],
+    "totalAmount": 675000,
+    "shippingFee": 45000,
+    "courier": "AgroCargo Express",
+    "trackingNumber": "AGC-IDM-44512",
+    "createdAt": "2026-10-06 09:30",
+    "paymentMethod": "BRI Virtual Account",
+    "note": "Pastikan segel botol rapat."
+  },
+  {
+    "id": "PT20261005",
+    "orderNumber": "#PT20261005",
+    "buyerName": "Tani Jaya Karawang",
+    "buyerPhone": "0813-4455-6677",
+    "buyerAddress": "Kec. Telagasari, Karawang Timur, Jawa Barat",
+    "status": "Selesai",
+    "items": [
+      {
+        "productId": "prod-002",
+        "productName": "Cangkul",
+        "category": "Alat Pertanian",
+        "quantity": 4,
+        "unitPrice": 95000,
+        "subtotal": 380000,
+        "productImage": "asset:cangkul",
+        "unit": "Pcs"
+      }
+    ],
+    "totalAmount": 380000,
+    "shippingFee": 35000,
+    "courier": "JNE Trucking (JTR)",
+    "trackingNumber": "JTR-KRW-11029",
+    "createdAt": "2026-10-04 13:15",
+    "paymentMethod": "QRIS Petani Tech"
+  },
+  {
+    "id": "PT20261006",
+    "orderNumber": "#PT20261006",
+    "buyerName": "Agro Sentosa Cibitung",
+    "buyerPhone": "0878-5544-3322",
+    "buyerAddress": "Cibitung, Bekasi, Jawa Barat",
+    "status": "Dibatalkan",
+    "items": [
+      {
+        "productId": "prod-003",
+        "productName": "Cangkul 2",
+        "category": "Alat Pertanian",
+        "quantity": 2,
+        "unitPrice": 125000,
+        "subtotal": 250000,
+        "productImage": "asset:cangkul2",
+        "unit": "Pcs"
+      }
+    ],
+    "totalAmount": 250000,
+    "shippingFee": 25000,
+    "courier": "SiCepat Agro",
+    "createdAt": "2026-10-03 16:40",
+    "paymentMethod": "Transfer Bank",
+    "note": "Dibatalkan oleh pembeli: salah memilih alamat pengiriman."
+  }
+]

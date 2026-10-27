@@ -1,0 +1,58 @@
+{
+  "auth": {
+    "name": "Nama",
+    "login": "Masuk",
+    "register": "Daftar",
+    "email": "Email",
+    "password": "Kata sandi",
+    "re_password": "Ulangi kata sandi",
+    "forgot_password": "Lupa kata sandi ?",
+    "login_with_google": "Masuk dengan Google",
+    "register_notice": "Akun baru",
+    "or": "Atau",
+    "register_with_google": "Daftar dengan Google",
+    "back_login": "Kembali ke masuk"
+  },
+  "form_validation": {
+    "password": {
+      "length": {
+        "min": "Kata sandi harus minimal {val} karakter",
+        "max": "Kata sandi tidak boleh melebihi {val} karakter"
+      },
+      "complexity": "Harus mengandung huruf besar, angka, dan simbol",
+      "match": "Kata sandi dan re-kata sandi harus sama"
+    },
+    "email": {
+      "invalid": "Mohon masukkan alamat email yang valid"
+    },
+    "register": {
+      "success": "Pendaftaran berhasil, silakan periksa email Anda untuk verifikasi.",
+      "failure": "Pendaftaran gagal, {message}"
+    },
+    "login": {
+      "success": "Masuk berhasil.",
+      "failure": "Masuk gagal, {message}"
+    }
+  },
+  "network": {
+    "rest": {
+      "error": "Terjadi kesalahan, silakan coba lagi nanti.",
+      "401": ""
+    }
+  },
+  "profile": {
+    "personal_information": "Profil pengguna",
+    "other": "Lainnya",
+    "name": "Nama",
+    "email": "Email",
+    "phone": "Telepon",
+    "address": "Alamat",
+    "location": "Lokasi",
+    "help": "Bantuan",
+    "about_app": "Tentang aplikasi",
+    "logout": "Keluar",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "edit": "Perbarui profil"
+  }
+}

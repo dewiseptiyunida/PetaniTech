@@ -1,0 +1,129 @@
+name: petanitech_mobile
+description: "Platform Petani Modern Memanfaatkan Teknologi"
+publish_to: "none"
+version: 1.0.2-alpha
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_modular: ^6.3.4
+  flutter_bloc: ^9.1.0
+  bloc: ^9.0.0
+  dio: ^5.8.0+1
+  mockito: ^5.4.5
+  dartz: ^0.10.1
+  equatable: ^2.0.7
+  shared_preferences: ^2.5.3
+  json_annotation: ^4.9.0
+  circle_nav_bar: ^2.2.0
+  intl: ^0.20.2
+  shimmer: ^3.0.0
+  flutter_widget_from_html: ^0.16.0
+  youtube_player_flutter: ^9.1.1
+  infinite_scroll_pagination: ^5.0.0
+  marquee: ^2.3.0
+  geolocator: ^13.0.4
+  flutter_localizations:
+    sdk: flutter
+  easy_localization: ^3.0.7+1
+  sliver_tools: ^0.2.12
+  dropdown_button2: ^2.3.9
+  form_validator: ">=0.1.1 <2.0.0"
+  syncfusion_flutter_charts: ^29.1.37+1
+  flutter_map: ^8.1.1
+  latlong2: ^0.9.1
+  flutter_map_math: ^0.2.1
+  image_picker: ^1.1.2
+  http_parser: ^4.1.2
+  device_info_plus:
+    ^11.5.0
+  uuid: ^4.5.1
+  connectivity_plus: ^6.1.4
+  cached_network_image: ^3.4.1
+  provider: ^6.1.5+1
+    # New dependencies for PostgreSQL integration
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  json_serializable: ^6.9.4
+  build_runner: ^2.4.15
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.6
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/translations/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/poppins/Poppins-Light.ttf
+          weight: 300
+        - asset: assets/fonts/poppins/Poppins-LightItalic.ttf
+          weight: 300
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-Thin.ttf
+          weight: 100
+        - asset: assets/fonts/poppins/Poppins-ThinItalic.ttf
+          weight: 100
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-ExtraLight.ttf
+          weight: 200
+        - asset: assets/fonts/poppins/Poppins-ExtraLightItalic.ttf
+          weight: 200
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-Regular.ttf
+        - asset: assets/fonts/poppins/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/poppins/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/poppins/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/poppins/Poppins-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/poppins/Poppins-Black.ttf
+          weight: 900
+        - asset: assets/fonts/poppins/Poppins-Italic.ttf
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-MediumItalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-SemiBoldItalic.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-BoldItalic.ttf
+          weight: 700
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-ExtraBoldItalic.ttf
+          weight: 800
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-BlackItalic.ttf
+          weight: 900
+          style: italic
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/favicon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: true
+    image_path: "assets/images/favicon.png"
+    background_color: "#ffffff"
+    theme_color: "#ffffff"
+  windows:
+    generate: true
+    image_path: "assets/images/favicon.png"
+    icon_size: 48 # min:48, max:256, default: 48
+  macos:
+    generate: true
+    image_path: "assets/images/favicon.png"
