@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:petanitech_mobile/utils/client/api_client.dart';
 import '../logic/controllers/checkout_controller.dart';
 import '../logic/controllers/order_controller.dart';
 import '../logic/controllers/shopping_cart_controller.dart';
@@ -306,7 +307,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       color: lightGreen,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(item.icon, color: darkGreen, size: 34),
+                    clipBehavior: Clip.antiAlias,
+                    child:
+                        (item.image != null && item.image!.isNotEmpty)
+                            ? Image.network(
+                              ApiClient.getAsset(item.image!),
+                              fit: BoxFit.cover,
+                              width: 68,
+                              height: 68,
+                              errorBuilder:
+                                  (_, __, ___) => Icon(
+                                    item.icon,
+                                    color: darkGreen,
+                                    size: 34,
+                                  ),
+                            )
+                            : Icon(item.icon, color: darkGreen, size: 34),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -331,7 +347,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             color: Colors.grey.shade600,
                           ),
                         ),
-                        if (item.variant != null && item.variant!.isNotEmpty) ...[
+                        if (item.variant != null &&
+                            item.variant!.isNotEmpty) ...[
                           const SizedBox(height: 3),
                           Text(
                             'Varian: ${item.variant}',
@@ -582,7 +599,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         const SizedBox(height: 6),
         _summaryRow(
-          'Biaya Layanan Aplikasi',
+          'Biaya Layanan',
           'Rp ${_controller.formatPrice(_controller.serviceFee)}',
         ),
         const Divider(height: 20),
@@ -682,29 +699,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: _isPlacingOrder
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.shopping_bag_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Buat Pesanan',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                          ),
+              child:
+                  _isPlacingOrder
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
+                      )
+                      : const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shopping_bag_rounded, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Buat Pesanan',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
             ),
           ),
         ],
@@ -1362,40 +1380,53 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     setState(() => _isPlacingOrder = true);
 
+    // Waktu pembuatan pesanan tepat saat tombol ditekan (bukan saat membuka halaman checkout)
+    final orderCreationTime = DateTime.now();
+    _controller.orderCreatedAt = orderCreationTime;
+
     final orderNumber = _controller.generateOrderNumber();
     final isCod = _controller.selectedPaymentType == 'cod';
 
-    final orderItems = _controller.checkoutItems.map((item) {
-      return OrderItemModel(
-        productName: item.name,
-        category: item.category,
-        price: item.price,
-        quantity: item.quantity,
-        icon: item.icon,
-        variant: item.variant,
-      );
-    }).toList();
+    final orderItems =
+        _controller.checkoutItems.map((item) {
+          return OrderItemModel(
+            productName: item.name,
+            category: item.category,
+            price: item.price,
+            quantity: item.quantity,
+            icon: item.icon,
+            variant: item.variant,
+            image: item.image,
+          );
+        }).toList();
+
+    final origin =
+        (widget.items != null && widget.items!.isNotEmpty) ? 'cart' : 'product';
 
     final newOrder = OrderModel(
       id: orderNumber,
       shopName: _controller.shopName,
-      createdAt: _controller.orderCreatedAt,
+      createdAt: orderCreationTime,
       status: isCod ? OrderStatus.processing : OrderStatus.awaitingPayment,
       paymentStatus:
           isCod ? 'Belum Dibayar (Bayar di Tempat)' : 'Menunggu Pembayaran',
       items: orderItems,
       receiver: _controller.currentAddress.receiver,
       phone: _controller.currentAddress.phone,
+      addressLabel: _controller.currentAddress.label,
       shippingAddress: _controller.currentAddress.fullAddress,
       courier: _controller.currentCourier.name,
       courierService: _controller.currentCourier.service,
-      trackingNumber: isCod
-          ? 'PT-TRK-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}'
-          : '',
+      trackingNumber:
+          isCod
+              ? 'PT-TRK-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}'
+              : '',
       paymentMethod: _controller.currentPaymentTitle,
-      paymentExpiresAt: _controller.selectedPaymentType == 'qris'
-          ? DateTime.now().add(const Duration(minutes: 10))
-          : null,
+      paymentExpiresAt:
+          _controller.selectedPaymentType == 'qris'
+              ? orderCreationTime.add(const Duration(minutes: 10))
+              : orderCreationTime.add(const Duration(hours: 24)),
+      checkoutOrigin: origin,
       shippingCost: _controller.shippingCost,
       serviceFee: _controller.serviceFee,
     );
@@ -1405,11 +1436,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     // Jika checkout berasal dari keranjang, hapus item yang berhasil dipesan (cocokkan nama & varian)
     if (widget.items != null && widget.items!.isNotEmpty) {
-      final itemsWithVariants = _controller.checkoutItems
-          .map((e) => {'name': e.name, 'variant': e.variant})
-          .toList();
-      ShoppingCartController.instance
-          .removeCheckedOutItemsWithVariants(itemsWithVariants);
+      final itemsWithVariants =
+          _controller.checkoutItems
+              .map((e) => {'name': e.name, 'variant': e.variant})
+              .toList();
+      ShoppingCartController.instance.removeCheckedOutItemsWithVariants(
+        itemsWithVariants,
+      );
     }
 
     if (mounted) {
@@ -1433,11 +1466,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               totalAmount: _controller.grandTotal,
               bankName: _controller.selectedBank,
               receiverName: _controller.currentAddress.receiver,
-              orderCreatedAt: _controller.orderCreatedAt,
+              orderCreatedAt: orderCreationTime,
+              checkoutOrigin: origin,
             )
             : QrisPaymentScreen(
               orderNumber: orderNumber,
               totalAmount: _controller.grandTotal,
+              checkoutOrigin: origin,
             );
 
     Navigator.pushReplacement(

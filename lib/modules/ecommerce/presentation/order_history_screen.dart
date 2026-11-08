@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:petanitech_mobile/utils/client/api_client.dart';
 import '../logic/controllers/order_controller.dart';
 import '../logic/controllers/review_controller.dart';
 import '../logic/models/order_model.dart';
@@ -32,6 +33,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     _controller = widget.controller ?? orderController;
     _controller.addListener(_refresh);
     reviewController.addListener(_refresh);
+    _controller.refreshOrders();
   }
 
   @override
@@ -48,9 +50,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   void _openAddReview(OrderModel order) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => AddReviewScreen(order: order),
-      ),
+      MaterialPageRoute(builder: (_) => AddReviewScreen(order: order)),
     ).then((result) {
       if (result == true) {
         _controller.markReviewed(order.id);
@@ -67,148 +67,157 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder:
+          (ctx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Ulasan Anda',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Ulasan Anda',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded, size: 22),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close_rounded, size: 22),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                  const Divider(height: 20, thickness: 0.8),
+                  if (review != null) ...[
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: _lightGreen,
+                          child: const Icon(
+                            Icons.person_rounded,
+                            color: _darkGreen,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                review.userName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                review.productName,
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Row(
+                          children: List.generate(
+                            5,
+                            (i) => Icon(
+                              i < review.rating
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: Colors.amber.shade700,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (review.variant != null &&
+                            review.variant!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _lightGreen,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Varian: ${review.variant}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _darkGreen,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      review.comment,
+                      style: const TextStyle(fontSize: 13, height: 1.4),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => ProductReviewsScreen(
+                                    productName: review.productName,
+                                  ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Lihat Semua Ulasan Produk Ini',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text('Data ulasan tidak ditemukan.'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              const Divider(height: 20, thickness: 0.8),
-              if (review != null) ...[
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: _lightGreen,
-                      child: const Icon(
-                        Icons.person_rounded,
-                        color: _darkGreen,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            review.userName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            review.productName,
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Row(
-                      children: List.generate(
-                        5,
-                        (i) => Icon(
-                          i < review.rating
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          color: Colors.amber.shade700,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (review.variant != null && review.variant!.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _lightGreen,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Varian: ${review.variant}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _darkGreen,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  review.comment,
-                  style: const TextStyle(fontSize: 13, height: 1.4),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProductReviewsScreen(
-                            productName: review.productName,
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Lihat Semua Ulasan Produk Ini',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                    ),
-                  ),
-                ),
-              ] else ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(
-                    child: Text('Data ulasan tidak ditemukan.'),
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -227,16 +236,13 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9F5),
       appBar: AppBar(
+        titleSpacing: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.black87,
-            size: 19,
-          ),
+          icon: const Icon(Icons.arrow_back, color: Colors.black87, size: 20),
         ),
         title: const Text(
           'Riwayat Pesanan',
@@ -262,6 +268,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 return ChoiceChip(
                   label: Text(filter.$1),
                   selected: active,
+                  showCheckmark: false,
                   onSelected: (_) => setState(() => _selected = filter.$2),
                   selectedColor: _green,
                   backgroundColor: Colors.white,
@@ -279,30 +286,46 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             ),
           ),
           Expanded(
-            child: orders.isEmpty
-                ? _emptyState()
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    itemCount: orders.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final order = orders[index];
-                      return _OrderCard(
-                        order: order,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => OrderDetailScreen(
-                              orderId: order.id,
-                              controller: _controller,
-                            ),
+            child: RefreshIndicator(
+              color: _green,
+              onRefresh: () => _controller.refreshOrders(),
+              child:
+                  orders.isEmpty
+                      ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.5,
+                            child: _emptyState(),
                           ),
-                        ),
-                        onAddReview: () => _openAddReview(order),
-                        onShowReview: () => _showExistingReview(order),
-                      );
-                    },
-                  ),
+                        ],
+                      )
+                      : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        itemCount: orders.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final order = orders[index];
+                          return _OrderCard(
+                            order: order,
+                            onTap:
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => OrderDetailScreen(
+                                          orderId: order.id,
+                                          controller: _controller,
+                                        ),
+                                  ),
+                                ),
+                            onAddReview: () => _openAddReview(order),
+                            onShowReview: () => _showExistingReview(order),
+                          );
+                        },
+                      ),
+            ),
           ),
         ],
       ),
@@ -310,38 +333,38 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   }
 
   Widget _emptyState() => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: _lightGreen,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.receipt_long_rounded,
-                  size: 42,
-                  color: _darkGreen,
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Belum ada pesanan',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Pesanan kamu akan muncul di halaman ini.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54),
-              ),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: _lightGreen,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.receipt_long_rounded,
+              size: 42,
+              color: _darkGreen,
+            ),
           ),
-        ),
-      );
+          const SizedBox(height: 14),
+          const Text(
+            'Belum ada pesanan',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Pesanan kamu akan muncul di halaman ini.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _OrderCard extends StatelessWidget {
@@ -451,7 +474,22 @@ class _OrderCard extends StatelessWidget {
                         color: _lightGreen,
                         borderRadius: BorderRadius.circular(13),
                       ),
-                      child: Icon(first.icon, size: 28, color: _darkGreen),
+                      clipBehavior: Clip.antiAlias,
+                      child:
+                          (first.image != null && first.image!.isNotEmpty)
+                              ? Image.network(
+                                ApiClient.getAsset(first.image!),
+                                fit: BoxFit.cover,
+                                width: 58,
+                                height: 58,
+                                errorBuilder:
+                                    (_, __, ___) => Icon(
+                                      first.icon,
+                                      size: 28,
+                                      color: _darkGreen,
+                                    ),
+                              )
+                              : Icon(first.icon, size: 28, color: _darkGreen),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -521,9 +559,15 @@ class _OrderCard extends StatelessWidget {
                           ),
                         ),
                         if (order.status == OrderStatus.awaitingPayment &&
-                            (order.paymentMethod.toLowerCase().contains('qris') ||
-                                order.paymentMethod.toLowerCase().contains('bank') ||
-                                order.paymentMethod.toLowerCase().contains('transfer'))) ...[
+                            (order.paymentMethod.toLowerCase().contains(
+                                  'qris',
+                                ) ||
+                                order.paymentMethod.toLowerCase().contains(
+                                  'bank',
+                                ) ||
+                                order.paymentMethod.toLowerCase().contains(
+                                  'transfer',
+                                ))) ...[
                           const SizedBox(height: 5),
                           _OrderPaymentCountdown(order: order),
                         ],
@@ -633,7 +677,6 @@ class _OrderCard extends StatelessWidget {
   }
 }
 
-
 /// Countdown berdasarkan batas waktu transaksi, bukan waktu halaman dibuka.
 class _OrderPaymentCountdown extends StatefulWidget {
   const _OrderPaymentCountdown({required this.order});
@@ -657,7 +700,10 @@ class _OrderPaymentCountdownState extends State<_OrderPaymentCountdown> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(_refresh);
-      if (_remaining.inSeconds <= 0) _timer?.cancel();
+      if (_remaining.inSeconds <= 0) {
+        _timer?.cancel();
+        orderController.cancelExpiredOrders();
+      }
     });
   }
 
@@ -665,10 +711,11 @@ class _OrderPaymentCountdownState extends State<_OrderPaymentCountdown> {
     if (order.paymentMethod.toLowerCase().contains('qris')) {
       // Untuk pesanan QRIS lama yang belum menyimpan expiry, gunakan createdAt
       // sebagai acuan agar tidak memulai 10 menit baru saat membuka riwayat.
-      return order.paymentExpiresAt ?? order.createdAt.add(const Duration(minutes: 10));
+      return order.paymentExpiresAt ??
+          order.createdAt.add(const Duration(minutes: 10));
     }
-    // Transfer bank tetap menggunakan batas 24 jam yang sudah ada.
-    return order.createdAt.add(const Duration(hours: 24));
+    // Transfer bank tetap menggunakan batas 24 jam yang tersimpan atau createdAt + 24 jam.
+    return order.paymentExpiresAt ?? order.createdAt.add(const Duration(hours: 24));
   }
 
   void _refresh() {
@@ -686,9 +733,10 @@ class _OrderPaymentCountdownState extends State<_OrderPaymentCountdown> {
   Widget build(BuildContext context) {
     final seconds = _remaining.inSeconds;
     final isExpired = seconds <= 0;
-    final label = isExpired
-        ? 'Waktu pembayaran habis'
-        : 'Sisa waktu: ${(_remaining.inHours > 0 ? _remaining.inHours.toString().padLeft(2, '0') + ':' : '')}${(_remaining.inMinutes % 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+    final label =
+        isExpired
+            ? 'Waktu pembayaran habis'
+            : 'Sisa waktu: ${(_remaining.inHours > 0 ? _remaining.inHours.toString().padLeft(2, '0') + ':' : '')}${(_remaining.inMinutes % 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

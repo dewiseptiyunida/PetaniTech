@@ -35,6 +35,7 @@ class OrderItemModel {
   final int quantity;
   final IconData icon;
   final String? variant;
+  final String? image;
 
   const OrderItemModel({
     required this.productName,
@@ -43,6 +44,7 @@ class OrderItemModel {
     required this.quantity,
     this.icon = Icons.agriculture_rounded,
     this.variant,
+    this.image,
   });
 
   int get subtotal => price * quantity;
@@ -55,6 +57,7 @@ class OrderItemModel {
       'quantity': quantity,
       'iconCodePoint': icon.codePoint,
       'variant': variant,
+      'image': image,
     };
   }
 
@@ -64,15 +67,17 @@ class OrderItemModel {
       category: json['category']?.toString() ?? '',
       price: (json['price'] as num?)?.toInt() ?? 0,
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-      icon: json['iconCodePoint'] != null
-          ? IconData(
-              json['iconCodePoint'] as int,
-              fontFamily: 'MaterialIcons',
-            )
-          : (json['icon'] is IconData
-              ? json['icon'] as IconData
-              : Icons.agriculture_rounded),
+      icon:
+          json['iconCodePoint'] != null
+              ? IconData(
+                json['iconCodePoint'] as int,
+                fontFamily: 'MaterialIcons',
+              )
+              : (json['icon'] is IconData
+                  ? json['icon'] as IconData
+                  : Icons.agriculture_rounded),
       variant: json['variant']?.toString(),
+      image: json['image']?.toString() ?? json['productImage']?.toString(),
     );
   }
 }
@@ -85,17 +90,27 @@ class OrderModel {
   final List<OrderItemModel> items;
   final String receiver;
   final String phone;
+  final String? addressLabel;
   final String shippingAddress;
   final String courier;
   final String courierService;
   final String trackingNumber;
   final String paymentMethod;
   final String paymentStatus;
+  final DateTime? paidAt;
+  final DateTime? shippedAt;
+  final DateTime? completedAt;
   final DateTime? paymentExpiresAt;
   final String? cancellationReason;
   final int shippingCost;
   final int serviceFee;
   final bool reviewed;
+  final String? paymentQrUrl;
+  final String? paymentQrString;
+  final String? paymentVaNumber;
+  final String? paymentBillKey;
+  final String? paymentBillerCode;
+  final String? checkoutOrigin; // 'cart' atau 'product'
 
   const OrderModel({
     required this.id,
@@ -105,17 +120,27 @@ class OrderModel {
     required this.items,
     required this.receiver,
     required this.phone,
+    this.addressLabel,
     required this.shippingAddress,
     required this.courier,
     required this.courierService,
     required this.trackingNumber,
     required this.paymentMethod,
     this.paymentStatus = 'Belum Dibayar',
+    this.paidAt,
+    this.shippedAt,
+    this.completedAt,
     this.paymentExpiresAt,
     this.cancellationReason,
     this.shippingCost = 0,
     this.serviceFee = 0,
     this.reviewed = false,
+    this.paymentQrUrl,
+    this.paymentQrString,
+    this.paymentVaNumber,
+    this.paymentBillKey,
+    this.paymentBillerCode,
+    this.checkoutOrigin,
   });
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
@@ -125,9 +150,19 @@ class OrderModel {
   OrderModel copyWith({
     OrderStatus? status,
     String? paymentStatus,
+    DateTime? paidAt,
+    DateTime? shippedAt,
+    DateTime? completedAt,
     String? cancellationReason,
     bool? reviewed,
     String? trackingNumber,
+    String? paymentQrUrl,
+    String? paymentQrString,
+    String? paymentVaNumber,
+    String? paymentBillKey,
+    String? paymentBillerCode,
+    String? checkoutOrigin,
+    String? addressLabel,
   }) {
     return OrderModel(
       id: id,
@@ -137,17 +172,27 @@ class OrderModel {
       items: items,
       receiver: receiver,
       phone: phone,
+      addressLabel: addressLabel ?? this.addressLabel,
       shippingAddress: shippingAddress,
       courier: courier,
       courierService: courierService,
       trackingNumber: trackingNumber ?? this.trackingNumber,
       paymentMethod: paymentMethod,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      paidAt: paidAt ?? this.paidAt,
+      shippedAt: shippedAt ?? this.shippedAt,
+      completedAt: completedAt ?? this.completedAt,
       paymentExpiresAt: paymentExpiresAt,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       shippingCost: shippingCost,
       serviceFee: serviceFee,
       reviewed: reviewed ?? this.reviewed,
+      paymentQrUrl: paymentQrUrl ?? this.paymentQrUrl,
+      paymentQrString: paymentQrString ?? this.paymentQrString,
+      paymentVaNumber: paymentVaNumber ?? this.paymentVaNumber,
+      paymentBillKey: paymentBillKey ?? this.paymentBillKey,
+      paymentBillerCode: paymentBillerCode ?? this.paymentBillerCode,
+      checkoutOrigin: checkoutOrigin ?? this.checkoutOrigin,
     );
   }
 
@@ -160,17 +205,27 @@ class OrderModel {
       'items': items.map((item) => item.toJson()).toList(),
       'receiver': receiver,
       'phone': phone,
+      'addressLabel': addressLabel,
       'shippingAddress': shippingAddress,
       'courier': courier,
       'courierService': courierService,
       'trackingNumber': trackingNumber,
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
+      'paidAt': paidAt?.toIso8601String(),
+      'shippedAt': shippedAt?.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
       'paymentExpiresAt': paymentExpiresAt?.toIso8601String(),
       'cancellationReason': cancellationReason,
       'shippingCost': shippingCost,
       'serviceFee': serviceFee,
       'reviewed': reviewed,
+      'paymentQrUrl': paymentQrUrl,
+      'paymentQrString': paymentQrString,
+      'paymentVaNumber': paymentVaNumber,
+      'paymentBillKey': paymentBillKey,
+      'paymentBillerCode': paymentBillerCode,
+      'checkoutOrigin': checkoutOrigin,
     };
   }
 
@@ -178,13 +233,15 @@ class OrderModel {
     return OrderModel(
       id: json['id']?.toString() ?? '',
       shopName: json['shopName']?.toString() ?? 'Tani Makmur Official Store',
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),
       status: OrderStatus.values.firstWhere(
         (s) => s.name == json['status'],
         orElse: () => OrderStatus.awaitingPayment,
       ),
-      items: (json['items'] as List<dynamic>?)
+      items:
+          (json['items'] as List<dynamic>?)
               ?.map(
                 (item) => OrderItemModel.fromJson(item as Map<String, dynamic>),
               )
@@ -192,17 +249,195 @@ class OrderModel {
           [],
       receiver: json['receiver']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
+      addressLabel: json['addressLabel']?.toString(),
       shippingAddress: json['shippingAddress']?.toString() ?? '',
       courier: json['courier']?.toString() ?? '',
       courierService: json['courierService']?.toString() ?? '',
       trackingNumber: json['trackingNumber']?.toString() ?? '',
       paymentMethod: json['paymentMethod']?.toString() ?? 'Transfer Bank',
       paymentStatus: json['paymentStatus']?.toString() ?? 'Belum Dibayar',
-      paymentExpiresAt: DateTime.tryParse(json['paymentExpiresAt']?.toString() ?? ''),
+      paidAt: DateTime.tryParse(json['paidAt']?.toString() ?? ''),
+      shippedAt: DateTime.tryParse(json['shippedAt']?.toString() ?? ''),
+      completedAt: DateTime.tryParse(json['completedAt']?.toString() ?? ''),
+      paymentExpiresAt: DateTime.tryParse(
+        json['paymentExpiresAt']?.toString() ?? '',
+      ),
       cancellationReason: json['cancellationReason']?.toString(),
       shippingCost: (json['shippingCost'] as num?)?.toInt() ?? 0,
       serviceFee: (json['serviceFee'] as num?)?.toInt() ?? 0,
       reviewed: json['reviewed'] == true,
+      paymentQrUrl: json['paymentQrUrl']?.toString(),
+      paymentQrString: json['paymentQrString']?.toString(),
+      paymentVaNumber: json['paymentVaNumber']?.toString(),
+      paymentBillKey: json['paymentBillKey']?.toString(),
+      paymentBillerCode: json['paymentBillerCode']?.toString(),
+      checkoutOrigin: json['checkoutOrigin']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toBackendPayload() {
+    String backendStatus;
+    switch (status) {
+      case OrderStatus.processing:
+        backendStatus = 'Diproses';
+        break;
+      case OrderStatus.shipped:
+        backendStatus = 'Dikirim';
+        break;
+      case OrderStatus.completed:
+        backendStatus = 'Selesai';
+        break;
+      case OrderStatus.cancelled:
+        backendStatus = 'Dibatalkan';
+        break;
+      case OrderStatus.awaitingPayment:
+        backendStatus = 'Menunggu Pembayaran';
+        break;
+    }
+
+    return {
+      'id': id,
+      'orderNumber': id,
+      'storeName': shopName,
+      'buyerName': receiver,
+      'buyerPhone': phone,
+      'addressLabel': addressLabel,
+      'buyerAddress': shippingAddress,
+      'status': backendStatus,
+      'totalAmount': total,
+      'shippingFee': shippingCost,
+      'courier': ('$courier $courierService').trim(),
+      'trackingNumber': trackingNumber,
+      'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
+      'createdAt': createdAt.toIso8601String(),
+      'paymentExpiresAt': paymentExpiresAt?.toIso8601String(),
+      'checkoutOrigin': checkoutOrigin,
+      'note': cancellationReason ?? '',
+      'items':
+          items
+              .map(
+                (item) => {
+                  'productName': item.productName,
+                  'category': item.category,
+                  'quantity': item.quantity,
+                  'unitPrice': item.price.toDouble(),
+                  'subtotal': item.subtotal.toDouble(),
+                  'variant': item.variant ?? '',
+                  'unit': item.variant ?? 'Pcs',
+                  'productImage': item.image ?? '',
+                },
+              )
+              .toList(),
+    };
+  }
+
+  factory OrderModel.fromBackendJson(Map<String, dynamic> json) {
+    final statusStr = json['status']?.toString().toLowerCase() ?? '';
+    OrderStatus status = OrderStatus.awaitingPayment;
+    if (statusStr.contains('batal') || statusStr == 'cancelled') {
+      status = OrderStatus.cancelled;
+    } else if (statusStr.contains('selesai') || statusStr == 'completed') {
+      status = OrderStatus.completed;
+    } else if (statusStr.contains('kirim') || statusStr == 'shipped') {
+      status = OrderStatus.shipped;
+    } else if (statusStr.contains('proses') || statusStr == 'processing') {
+      status = OrderStatus.processing;
+    } else {
+      status = OrderStatus.awaitingPayment;
+    }
+
+    final rawItems = json['items'] as List<dynamic>? ?? [];
+    final items =
+        rawItems.map((item) {
+          if (item is Map) {
+            final itm = Map<String, dynamic>.from(item);
+            final cat = itm['category']?.toString() ?? 'Produk';
+            return OrderItemModel(
+              productName: itm['productName']?.toString() ?? '',
+              category: cat,
+              price: (itm['unitPrice'] as num?)?.toInt() ?? 0,
+              quantity: (itm['quantity'] as num?)?.toInt() ?? 1,
+              variant: itm['unit']?.toString() ?? itm['variant']?.toString(),
+              image:
+                  itm['productImage']?.toString() ?? itm['image']?.toString(),
+            );
+          }
+          return const OrderItemModel(
+            productName: '',
+            category: '',
+            price: 0,
+            quantity: 1,
+          );
+        }).toList();
+
+    DateTime createdAt =
+        DateTime.tryParse(json['dateCreated']?.toString() ?? '') ??
+        DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+        DateTime.now();
+
+    final backendPayStatus =
+        json['paymentStatus']?.toString() ??
+        ((status == OrderStatus.completed || status == OrderStatus.shipped)
+            ? 'Lunas'
+            : (status == OrderStatus.cancelled
+                ? 'Dibatalkan'
+                : 'Menunggu Pembayaran'));
+
+    return OrderModel(
+      id: json['id']?.toString() ?? json['orderNumber']?.toString() ?? '',
+      shopName: json['storeName']?.toString() ?? 'Tani Makmur Official Store',
+      createdAt: createdAt,
+      status: status,
+      items: items,
+      receiver: json['buyerName']?.toString() ?? '',
+      phone: json['buyerPhone']?.toString() ?? '',
+      addressLabel:
+          json['addressLabel']?.toString() ?? json['address_label']?.toString(),
+      shippingAddress: json['buyerAddress']?.toString() ?? '',
+      courier: json['courier']?.toString() ?? 'Kurir PetaniTech',
+      courierService: '',
+      trackingNumber: json['trackingNumber']?.toString() ?? '',
+      paymentMethod: json['paymentMethod']?.toString() ?? 'Transfer Bank',
+      paymentStatus: backendPayStatus,
+      paidAt: DateTime.tryParse(
+        json['paidAt']?.toString() ?? json['paid_at']?.toString() ?? '',
+      ),
+      shippedAt: DateTime.tryParse(
+        json['shippedAt']?.toString() ?? json['shipped_at']?.toString() ?? '',
+      ),
+      completedAt: DateTime.tryParse(
+        json['completedAt']?.toString() ??
+            json['completed_at']?.toString() ??
+            '',
+      ),
+      paymentExpiresAt: DateTime.tryParse(
+        json['paymentExpiresAt']?.toString() ??
+            json['payment_expires_at']?.toString() ??
+            '',
+      ),
+      cancellationReason: json['note']?.toString(),
+      shippingCost: (json['shippingFee'] as num?)?.toInt() ?? 0,
+      serviceFee: 2000,
+      reviewed: false,
+      paymentQrUrl:
+          json['paymentQrUrl']?.toString() ??
+          json['payment_qr_url']?.toString(),
+      paymentQrString:
+          json['paymentQrString']?.toString() ??
+          json['payment_qr_string']?.toString(),
+      paymentVaNumber:
+          json['paymentVaNumber']?.toString() ??
+          json['payment_va_number']?.toString(),
+      paymentBillKey:
+          json['paymentBillKey']?.toString() ??
+          json['payment_bill_key']?.toString(),
+      paymentBillerCode:
+          json['paymentBillerCode']?.toString() ??
+          json['payment_biller_code']?.toString(),
+      checkoutOrigin:
+          json['checkoutOrigin']?.toString() ??
+          json['checkout_origin']?.toString(),
     );
   }
 }

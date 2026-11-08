@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -18,9 +19,15 @@ class PTAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final userBloc = Modular.get<UserBloc>();
+    if (userBloc.state is UserInitial) {
+      userBloc.add(LoadUser());
+    }
+
     return BlocProvider.value(
-      value: Modular.get<UserBloc>(),
+      value: userBloc,
       child: BlocBuilder<UserBloc, UserState>(
+        bloc: userBloc,
         builder: (context, state) {
           return AppBar(
             backgroundColor: AppTheme.accentColor,
@@ -73,12 +80,14 @@ class PTAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ],
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               BlocBuilder<NavigationBloc, NavigationState>(
                 bloc: Modular.get<NavigationBloc>(),
                 builder: (context, stateNav) {
                   if (stateNav.currentTab != NavigationTab.profile) {
                     if (state is UserLoaded) {
+                      final hasAvatar = state.user.avatar != null &&
+                          state.user.avatar!.trim().isNotEmpty;
                       return GestureDetector(
                         onTap: () {
                           Modular.get<NavigationBloc>().add(
@@ -97,12 +106,22 @@ class PTAppBar extends StatelessWidget implements PreferredSizeWidget {
                             border: Border.all(color: Colors.white, width: 2),
                           ),
                           child: CircleAvatar(
-                            backgroundImage:
-                                state.user.avatar != null
-                                    ? NetworkImage(
-                                      ApiClient.getAsset(state.user.avatar!),
-                                    )
-                                    : const AssetImage(PTAsset.logo),
+                            radius: 17,
+                            backgroundColor: Colors.white24,
+                            backgroundImage: hasAvatar
+                                ? CachedNetworkImageProvider(
+                                    ApiClient.getAsset(
+                                      state.user.avatar!.trim(),
+                                    ),
+                                  )
+                                : null,
+                            child: !hasAvatar
+                                ? const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 20,
+                                  )
+                                : null,
                           ),
                         ),
                       );
@@ -112,12 +131,15 @@ class PTAppBar extends StatelessWidget implements PreferredSizeWidget {
                         child: Shimmer.fromColors(
                           baseColor: Colors.grey[300]!,
                           highlightColor: Colors.grey[100]!,
-                          child: CircleAvatar(backgroundColor: Colors.grey),
+                          child: const CircleAvatar(
+                            radius: 17,
+                            backgroundColor: Colors.grey,
+                          ),
                         ),
                       );
                     }
                   } else {
-                    return SizedBox();
+                    return const SizedBox();
                   }
                 },
               ),

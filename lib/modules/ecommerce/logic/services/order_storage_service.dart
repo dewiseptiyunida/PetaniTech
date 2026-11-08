@@ -1,11 +1,15 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:petanitech_mobile/core/config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order_model.dart';
 
 class OrderStorageService {
   static const String _storageKey = 'petanitech_orders_history_v1';
+  final Dio _dio = Dio();
 
+  /// Memuat riwayat pesanan dari cache lokal (SharedPreferences).
   Future<List<OrderModel>> loadOrders() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -19,256 +23,151 @@ class OrderStorageService {
           .map((item) => OrderModel.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      debugPrint('Error loading orders from storage: $e');
+      debugPrint(
+        '[OrderStorageService] Error loading orders from local cache: $e',
+      );
       return [];
     }
   }
 
-  List<OrderModel> _getInitialSeedOrders() {
-    final now = DateTime.now();
-    return [
-      OrderModel(
-        id: 'PT-HIST-01',
-        shopName: 'Toko Tani Makmur',
-        createdAt: now.subtract(const Duration(days: 3)),
-        status: OrderStatus.completed,
-        paymentStatus: 'Lunas',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'J&T Express',
-        courierService: 'Reguler',
-        trackingNumber: 'PT-TRK-992101',
-        paymentMethod: 'QRIS',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: true,
-        items: const [
-          OrderItemModel(
-            productName: 'Pupuk NPK Mutiara',
-            category: 'Pupuk',
-            price: 25000,
-            quantity: 2,
-            variant: '1 Kg',
-            icon: Icons.eco_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-HIST-02',
-        shopName: 'Toko Tani Makmur',
-        createdAt: now.subtract(const Duration(days: 7)),
-        status: OrderStatus.completed,
-        paymentStatus: 'Lunas',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'SiCepat',
-        courierService: 'Halu',
-        trackingNumber: 'PT-TRK-981203',
-        paymentMethod: 'Transfer Bank (BCA)',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: true,
-        items: const [
-          OrderItemModel(
-            productName: 'Pupuk NPK Mutiara',
-            category: 'Pupuk',
-            price: 115000,
-            quantity: 1,
-            variant: '5 Kg',
-            icon: Icons.eco_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-HIST-03',
-        shopName: 'Benih Unggul Nusantara',
-        createdAt: now.subtract(const Duration(days: 10)),
-        status: OrderStatus.completed,
-        paymentStatus: 'Lunas',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'JNE',
-        courierService: 'Regular',
-        trackingNumber: 'PT-TRK-971032',
-        paymentMethod: 'QRIS',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: true,
-        items: const [
-          OrderItemModel(
-            productName: 'Benih Padi Unggul',
-            category: 'Benih',
-            price: 45000,
-            quantity: 3,
-            variant: 'Kemasan 1 Kg',
-            icon: Icons.grass_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-HIST-04',
-        shopName: 'Perkakas Tani Jaya',
-        createdAt: now.subtract(const Duration(days: 14)),
-        status: OrderStatus.completed,
-        paymentStatus: 'Lunas',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'Anteraja',
-        courierService: 'Reguler',
-        trackingNumber: 'PT-TRK-950291',
-        paymentMethod: 'COD (Bayar di Tempat)',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: true,
-        items: const [
-          OrderItemModel(
-            productName: 'Cangkul Besi',
-            category: 'Alat',
-            price: 85000,
-            quantity: 1,
-            icon: Icons.hardware_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-ORD-005',
-        shopName: 'Alat Pertanian Mandiri',
-        createdAt: now.subtract(const Duration(days: 1)),
-        status: OrderStatus.completed,
-        paymentStatus: 'Lunas',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'SiCepat',
-        courierService: 'Best',
-        trackingNumber: 'PT-TRK-990812',
-        paymentMethod: 'Transfer Bank (Mandiri)',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: false,
-        items: const [
-          OrderItemModel(
-            productName: 'Sprayer Elektrik',
-            category: 'Alat',
-            price: 250000,
-            quantity: 1,
-            icon: Icons.shower_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-ORD-006',
-        shopName: 'Toko Tani Makmur',
-        createdAt: now.subtract(const Duration(days: 2)),
-        status: OrderStatus.shipped,
-        paymentStatus: 'Lunas',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'J&T Express',
-        courierService: 'EZ',
-        trackingNumber: 'PT-TRK-771822',
-        paymentMethod: 'QRIS',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: false,
-        items: const [
-          OrderItemModel(
-            productName: 'Pupuk NPK Mutiara',
-            category: 'Pupuk',
-            price: 25000,
-            quantity: 2,
-            variant: '1 Kg',
-            icon: Icons.eco_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-ORD-007',
-        shopName: 'Benih Unggul Nusantara',
-        createdAt: now.subtract(const Duration(hours: 4)),
-        status: OrderStatus.processing,
-        paymentStatus: 'Lunas',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'JNE',
-        courierService: 'Regular',
-        trackingNumber: '',
-        paymentMethod: 'Transfer Bank (BRI)',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: false,
-        items: const [
-          OrderItemModel(
-            productName: 'Benih Padi Unggul',
-            category: 'Benih',
-            price: 210000,
-            quantity: 1,
-            variant: 'Kemasan 5 Kg',
-            icon: Icons.grass_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-ORD-008',
-        shopName: 'Toko Tani Makmur',
-        createdAt: now.subtract(const Duration(minutes: 15)),
-        status: OrderStatus.awaitingPayment,
-        paymentStatus: 'Belum Dibayar',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'J&T Express',
-        courierService: 'EZ',
-        trackingNumber: '',
-        paymentMethod: 'QRIS',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: false,
-        items: const [
-          OrderItemModel(
-            productName: 'Pupuk NPK Mutiara',
-            category: 'Pupuk',
-            price: 550000,
-            quantity: 1,
-            variant: '25 Kg',
-            icon: Icons.eco_rounded,
-          ),
-        ],
-      ),
-      OrderModel(
-        id: 'PT-ORD-009',
-        shopName: 'Perkakas Tani Jaya',
-        createdAt: now.subtract(const Duration(days: 5)),
-        status: OrderStatus.cancelled,
-        paymentStatus: 'Dibatalkan',
-        cancellationReason: 'Salah memilih produk atau varian',
-        receiver: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        shippingAddress: 'Jl. Raya Pertanian No. 45, Karanganyar, Jawa Tengah',
-        courier: 'Anteraja',
-        courierService: 'Reguler',
-        trackingNumber: '',
-        paymentMethod: 'COD (Bayar di Tempat)',
-        shippingCost: 10000,
-        serviceFee: 2000,
-        reviewed: false,
-        items: const [
-          OrderItemModel(
-            productName: 'Cangkul Besi',
-            category: 'Alat',
-            price: 85000,
-            quantity: 1,
-            icon: Icons.hardware_rounded,
-          ),
-        ],
-      ),
-    ];
+  /// Mengambil data pesanan langsung dari backend Go (GET /api/v1/orders).
+  /// Sekaligus memperbarui cache lokal untuk performa dan offline fallback.
+  Future<List<OrderModel>> fetchOrdersFromBackend() async {
+    try {
+      final response = await _dio.get(
+        '$appUrl/orders',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 8),
+          sendTimeout: const Duration(seconds: 8),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final rawData = response.data;
+        final List<dynamic> listData =
+            rawData is List
+                ? rawData
+                : (rawData is Map && rawData['data'] is List
+                    ? rawData['data'] as List
+                    : []);
+
+        final List<OrderModel> backendOrders = [];
+        for (var item in listData) {
+          if (item is Map<String, dynamic>) {
+            backendOrders.add(OrderModel.fromBackendJson(item));
+          } else if (item is Map) {
+            backendOrders.add(
+              OrderModel.fromBackendJson(Map<String, dynamic>.from(item)),
+            );
+          }
+        }
+
+        return backendOrders;
+      }
+    } catch (e) {
+      debugPrint(
+        '[OrderStorageService] Error fetching orders from backend: $e',
+      );
+    }
+    return [];
+  }
+
+  /// Membuat pesanan baru ke backend Go (POST /api/v1/orders).
+  /// Mengurangi stok produk seller dan mencatat order secara terpusat di database.
+  Future<bool> createOrderToBackend(OrderModel order) async {
+    try {
+      final payload = order.toBackendPayload();
+      final response = await _dio.post(
+        '$appUrl/orders',
+        data: payload,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('[OrderStorageService] Error creating order to backend: $e');
+      return false;
+    }
+  }
+
+  /// Membatalkan pesanan di backend Go (PUT /api/v1/orders/:id/cancel).
+  Future<bool> cancelOrderToBackend(String orderId, {String? reason}) async {
+    try {
+      final response = await _dio.put(
+        '$appUrl/orders/$orderId/cancel',
+        data: {'reason': reason ?? 'Dibatalkan oleh pembeli'},
+        options: Options(
+          receiveTimeout: const Duration(seconds: 8),
+          sendTimeout: const Duration(seconds: 8),
+        ),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('[OrderStorageService] Error cancelling order on backend: $e');
+      return false;
+    }
+  }
+
+  /// Melakukan charge transaksi ke Midtrans Core API via backend Go
+  Future<Map<String, dynamic>?> chargeMidtrans({
+    required String orderId,
+    String? paymentType,
+    String? bank,
+    double? grossAmount,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$appUrl/payments/midtrans/charge',
+        data: {
+          'orderId': orderId,
+          if (paymentType != null) 'paymentType': paymentType,
+          if (bank != null) 'bank': bank,
+          if (grossAmount != null) 'grossAmount': grossAmount,
+        },
+        options: Options(
+          receiveTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 15),
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'];
+        if (data is Map<String, dynamic>) return data;
+        if (data is Map) return Map<String, dynamic>.from(data);
+      }
+    } catch (e) {
+      debugPrint('[OrderStorageService] Error charging midtrans: $e');
+    }
+    return null;
+  }
+
+  /// Sinkronisasi / cek status pembayaran secara manual ke backend Go
+  Future<OrderModel?> syncMidtransStatus(String orderId) async {
+    try {
+      final response = await _dio.get(
+        '$appUrl/payments/midtrans/status/$orderId',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 15),
+        ),
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final rawData = response.data['data'];
+        if (rawData is Map) {
+          final updated = OrderModel.fromBackendJson(
+            Map<String, dynamic>.from(rawData),
+          );
+          return updated;
+        }
+      }
+    } catch (e) {
+      debugPrint('[OrderStorageService] Error syncing midtrans status: $e');
+    }
+    return null;
   }
 
   /// Menyimpan daftar pesanan ke SharedPreferences.
@@ -278,7 +177,7 @@ class OrderStorageService {
       final jsonString = jsonEncode(orders.map((o) => o.toJson()).toList());
       await prefs.setString(_storageKey, jsonString);
     } catch (e) {
-      debugPrint('Error saving orders to storage: $e');
+      debugPrint('[OrderStorageService] Error saving orders to storage: $e');
     }
   }
 
@@ -288,7 +187,7 @@ class OrderStorageService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_storageKey, '[]');
     } catch (e) {
-      debugPrint('Error clearing orders storage: $e');
+      debugPrint('[OrderStorageService] Error clearing orders storage: $e');
     }
   }
 }

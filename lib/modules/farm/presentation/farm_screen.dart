@@ -8,6 +8,7 @@ import 'package:petanitech_mobile/data/models/farm_model.dart';
 import 'package:petanitech_mobile/modules/farm/logic/blocs/farm/farm_bloc.dart';
 import 'package:petanitech_mobile/modules/farm/logic/blocs/farm/farm_event.dart';
 import 'package:petanitech_mobile/modules/farm/presentation/components/item_farm.dart';
+import 'package:petanitech_mobile/modules/farm/presentation/farm_create_screen.dart';
 import 'package:petanitech_mobile/utils/coordinate/coordinate_helper.dart';
 
 class FarmScreen extends StatefulWidget {
@@ -29,12 +30,17 @@ class _FarmScreenState extends State<FarmScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Lahan'),
+        title: const Text('Lahan', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.add, color: Colors.white),
             onPressed: () {
-              // Add your onPressed logic here
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FarmCreateScreen()),
+              ).then((_) {
+                Modular.get<FarmBloc>().add(RefreshFarms());
+              });
             },
           ),
         ],
@@ -45,7 +51,7 @@ class _FarmScreenState extends State<FarmScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
               decoration: InputDecoration(
                 hintText: 'Cari',
@@ -53,10 +59,10 @@ class _FarmScreenState extends State<FarmScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8.0),
                 ),
-                contentPadding: EdgeInsets.symmetric(vertical: 8.0),
+                contentPadding: const EdgeInsets.symmetric(vertical: 8.0),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Expanded(
               child: BlocBuilder<FarmBloc, PagingState<int, FarmModel>>(
                 bloc: Modular.get<FarmBloc>(),
@@ -84,16 +90,15 @@ class _FarmScreenState extends State<FarmScreen> {
                             (context, item, index) => ItemFarm(
                               title: item.name ?? '',
                               address: item.address ?? '',
-                              size: double.parse(
-                                item.areaSize ?? '0.0',
-                              ).toStringAsFixed(2),
-                              unit: tr('farm.unit.${item.areaUnit}'),
-                              polygon: CoordinateHelper.convertToLatLng(
-                                item.location?.coordinates?[0] ??
-                                    [
-                                      [0.0, 0.0],
-                                    ],
-                              ),
+                              size: double.tryParse(item.areaSize ?? '0')?.toStringAsFixed(2) ?? (item.areaSize ?? '0'),
+                              unit: (item.areaUnit != null && item.areaUnit!.isNotEmpty)
+                                  ? (item.areaUnit == 'm2' ? 'm²' : item.areaUnit!)
+                                  : 'm²',
+                              polygon: (item.location?.coordinates != null && item.location!.coordinates!.isNotEmpty)
+                                  ? CoordinateHelper.convertToLatLng(
+                                      item.location!.coordinates![0],
+                                    )
+                                  : [],
                             ),
                       ),
                     ),

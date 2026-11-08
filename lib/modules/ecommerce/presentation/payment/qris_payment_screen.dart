@@ -2,15 +2,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../logic/controllers/order_controller.dart';
 import '../../logic/models/order_model.dart';
+import '../order_detail_screen.dart';
 
 class QrisPaymentScreen extends StatefulWidget {
   final String orderNumber;
   final int totalAmount;
+  final String? checkoutOrigin;
 
   const QrisPaymentScreen({
     super.key,
     required this.orderNumber,
     required this.totalAmount,
+    this.checkoutOrigin,
   });
 
   @override
@@ -27,6 +30,9 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
   late DateTime _paymentExpiresAt;
   int _secondsRemaining = 0;
 
+  bool _isLoadingQr = false;
+  String _qrImageUrl = '';
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +43,13 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
         order?.createdAt.add(const Duration(minutes: 10)) ??
         DateTime.now().add(const Duration(minutes: 10));
     _updateRemainingTime();
+
+    if (order?.paymentQrUrl != null && order!.paymentQrUrl!.isNotEmpty) {
+      _qrImageUrl = order.paymentQrUrl!;
+    } else {
+      _fetchQrisData();
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(_updateRemainingTime);
@@ -52,6 +65,29 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
       }
     });
   }
+
+  Future<void> _fetchQrisData() async {
+    setState(() => _isLoadingQr = true);
+    try {
+      final res = await orderController.chargeMidtrans(
+        widget.orderNumber,
+        paymentType: 'qris',
+      );
+      if (mounted && res != null && res['qrUrl'] != null) {
+        setState(() {
+          _qrImageUrl = res['qrUrl'].toString();
+        });
+      }
+    } catch (_) {
+      // Abaikan error jika fallback lokal
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingQr = false);
+      }
+    }
+  }
+
+
 
   void _updateRemainingTime() {
     final remaining = _paymentExpiresAt.difference(DateTime.now()).inSeconds;
@@ -239,9 +275,9 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
         ),
         const SizedBox(height: 18),
         Container(
-          width: 220,
-          height: 220,
-          padding: const EdgeInsets.all(14),
+          width: 230,
+          height: 230,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -254,53 +290,45 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
               ),
             ],
           ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _qrCornerMarker(),
-                      _qrDottedBlock(),
-                      _qrCornerMarker(),
-                    ],
-                  ),
-                  _qrCenterPattern(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _qrCornerMarker(),
-                      _qrDottedBlock(),
-                      _qrDottedBlock(),
-                    ],
-                  ),
-                ],
-              ),
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: primaryGreen, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 6,
+          child: _isLoadingQr
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(darkGreen),
+                      strokeWidth: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Menghubungkan Midtrans...',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
-                ),
-                child: Icon(
-                  Icons.energy_savings_leaf_rounded,
-                  color: darkGreen,
-                  size: 24,
-                ),
-              ),
-            ],
-          ),
+                )
+              : _qrImageUrl.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        _qrImageUrl,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(darkGreen),
+                              strokeWidth: 2.5,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildFallbackQrPattern(),
+                      ),
+                    )
+                  : _buildFallbackQrPattern(),
         ),
         const SizedBox(height: 18),
         Text(
@@ -333,6 +361,54 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
         ),
       ],
     ),
+  );
+
+  Widget _buildFallbackQrPattern() => Stack(
+    alignment: Alignment.center,
+    children: [
+      Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _qrCornerMarker(),
+              _qrDottedBlock(),
+              _qrCornerMarker(),
+            ],
+          ),
+          _qrCenterPattern(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _qrCornerMarker(),
+              _qrDottedBlock(),
+              _qrDottedBlock(),
+            ],
+          ),
+        ],
+      ),
+      Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: primaryGreen, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.energy_savings_leaf_rounded,
+          color: darkGreen,
+          size: 24,
+        ),
+      ),
+    ],
   );
 
   Widget _qrCornerMarker() => Container(
@@ -473,7 +549,6 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
   );
 
   void _payLater() {
-    // Pesanan sudah disimpan saat checkout. Kembali tanpa membuat transaksi baru.
     Navigator.pop(context);
   }
 
@@ -498,7 +573,7 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
         child: OutlinedButton(
           onPressed: _payLater,
           style: OutlinedButton.styleFrom(
-            side: BorderSide(color: primaryGreen),
+            side: BorderSide(color: primaryGreen.withValues(alpha: 0.5)),
             foregroundColor: darkGreen,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -506,7 +581,7 @@ class _QrisPaymentScreenState extends State<QrisPaymentScreen> {
           ),
           child: const Text(
             'Bayar Nanti',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
           ),
         ),
       ),

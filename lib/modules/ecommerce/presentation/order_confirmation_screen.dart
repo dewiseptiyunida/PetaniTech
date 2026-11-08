@@ -36,21 +36,6 @@ class OrderConfirmationScreen extends StatelessWidget {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F9F5),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          elevation: 0.5,
-          automaticallyImplyLeading: false,
-          title: const Text(
-            'Konfirmasi Pesanan',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: Colors.black87,
-            ),
-          ),
-          centerTitle: true,
-        ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 30),
           children: [
@@ -227,7 +212,10 @@ class OrderConfirmationScreen extends StatelessWidget {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => OrderDetailScreen(orderId: order.id),
+                          builder: (_) => OrderDetailScreen(
+                            orderId: order.id,
+                            fromSource: order.checkoutOrigin,
+                          ),
                         ),
                       );
                     },

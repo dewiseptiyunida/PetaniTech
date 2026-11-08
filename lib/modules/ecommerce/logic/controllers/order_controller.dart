@@ -15,8 +15,8 @@ class OrderController extends ChangeNotifier {
   OrderController({
     List<OrderModel>? initialOrders,
     OrderStorageService? storageService,
-  })  : _storageService = storageService ?? OrderStorageService(),
-        _orders = List<OrderModel>.of(initialOrders ?? []) {
+  }) : _storageService = storageService ?? OrderStorageService(),
+       _orders = List<OrderModel>.of(initialOrders ?? []) {
     loadFromStorage();
   }
 
@@ -49,18 +49,77 @@ class OrderController extends ChangeNotifier {
   }
 
   Future<void> _doLoad() async {
+    // 1. Ambil dari local cache dulu agar instan di UI
     final loaded = await _storageService.loadOrders();
     if (_orders.isEmpty && loaded.isNotEmpty) {
       _orders.addAll(loaded);
       _sortOrders();
+      notifyListeners();
     }
     _isLoaded = true;
+
+    // 2. Sinkronkan dengan backend Go secara real-time
+    await refreshOrders();
+
     await _cancelExpiredOrders();
     _expiryTimer ??= Timer.periodic(
       const Duration(seconds: 1),
       (_) => _cancelExpiredOrders(),
     );
-    notifyListeners();
+  }
+
+  /// Sinkronisasi langsung data pesanan dari backend Go
+  Future<void> refreshOrders() async {
+    final backendOrders = await _storageService.fetchOrdersFromBackend();
+    if (backendOrders.isNotEmpty) {
+      final localById = <String, OrderModel>{
+        for (final order in _orders) order.id: order,
+      };
+      final mergedOrders =
+          backendOrders.map((remote) {
+            final local = localById[remote.id];
+            if (local == null) return remote;
+            return OrderModel(
+              id: remote.id,
+              shopName: remote.shopName,
+              createdAt: remote.createdAt,
+              status: remote.status,
+              items: remote.items,
+              receiver: remote.receiver,
+              phone: remote.phone,
+              addressLabel: remote.addressLabel ?? local.addressLabel,
+              shippingAddress: remote.shippingAddress,
+              courier: remote.courier,
+              courierService: remote.courierService,
+              trackingNumber: remote.trackingNumber,
+              paymentMethod: remote.paymentMethod,
+              paymentStatus: remote.paymentStatus,
+              paidAt: remote.paidAt ?? local.paidAt,
+              shippedAt: remote.shippedAt ?? local.shippedAt,
+              completedAt: remote.completedAt ?? local.completedAt,
+              paymentExpiresAt:
+                  remote.paymentExpiresAt ?? local.paymentExpiresAt,
+              cancellationReason:
+                  remote.cancellationReason ?? local.cancellationReason,
+              shippingCost: remote.shippingCost,
+              serviceFee: remote.serviceFee,
+              reviewed: remote.reviewed || local.reviewed,
+              paymentQrUrl: remote.paymentQrUrl ?? local.paymentQrUrl,
+              paymentQrString: remote.paymentQrString ?? local.paymentQrString,
+              paymentVaNumber: remote.paymentVaNumber ?? local.paymentVaNumber,
+              paymentBillKey: remote.paymentBillKey ?? local.paymentBillKey,
+              paymentBillerCode:
+                  remote.paymentBillerCode ?? local.paymentBillerCode,
+              checkoutOrigin: remote.checkoutOrigin ?? local.checkoutOrigin,
+            );
+          }).toList();
+      _orders.clear();
+      _orders.addAll(mergedOrders);
+      _sortOrders();
+      _isLoaded = true;
+      notifyListeners();
+      await _persist();
+    }
   }
 
   Future<void> _persist() async {
@@ -76,6 +135,9 @@ class OrderController extends ChangeNotifier {
       isQris ? const Duration(minutes: 10) : const Duration(hours: 24),
     );
   }
+
+  /// Memeriksa dan membatalkan pesanan yang telah melewati batas waktu pembayaran secara otomatis.
+  Future<void> cancelExpiredOrders() => _cancelExpiredOrders();
 
   Future<void> _cancelExpiredOrders() async {
     if (!_isLoaded) return;
@@ -115,6 +177,13 @@ class OrderController extends ChangeNotifier {
     notifyListeners();
     await _persist();
     await _cancelExpiredOrders();
+
+    // Simpan pesanan ke database backend Go (akan memotong stok produk seller)
+    final success = await _storageService.createOrderToBackend(order);
+    if (success) {
+      // Sinkronkan kembali untuk memperbarui nomor ID / status dari server
+      await refreshOrders();
+    }
   }
 
   /// Mencari pesanan berdasarkan ID.
@@ -152,14 +221,19 @@ class OrderController extends ChangeNotifier {
   /// Membatalkan pesanan.
   Future<void> cancelOrder(String id, {String? reason}) async {
     final index = _orders.indexWhere((order) => order.id == id);
-    if (index < 0) return;
-    _orders[index] = _orders[index].copyWith(
-      status: OrderStatus.cancelled,
-      paymentStatus: 'Dibatalkan',
-      cancellationReason: reason ?? 'Dibatalkan oleh pembeli',
-    );
-    notifyListeners();
-    await _persist();
+    if (index >= 0) {
+      _orders[index] = _orders[index].copyWith(
+        status: OrderStatus.cancelled,
+        paymentStatus: 'Dibatalkan',
+        cancellationReason: reason ?? 'Dibatalkan oleh pembeli',
+      );
+      notifyListeners();
+      await _persist();
+    }
+
+    // Mengirim pembatalan ke backend Go (mengembalikan stok produk di seller)
+    await _storageService.cancelOrderToBackend(id, reason: reason);
+    await refreshOrders();
   }
 
   /// Menghitung total barang yang terjual dari pesanan aktif.
@@ -194,6 +268,86 @@ class OrderController extends ChangeNotifier {
     _isLoaded = true;
     notifyListeners();
     await _storageService.clearOrders();
+  }
+
+  /// Melakukan request pembayaran Midtrans untuk pesanan
+  Future<Map<String, dynamic>?> chargeMidtrans(
+    String orderId, {
+    String? paymentType,
+    String? bank,
+    double? grossAmount,
+  }) async {
+    final res = await _storageService.chargeMidtrans(
+      orderId: orderId,
+      paymentType: paymentType,
+      bank: bank,
+      grossAmount: grossAmount,
+    );
+    if (res != null) {
+      final index = _orders.indexWhere((o) => o.id == orderId);
+      if (index >= 0) {
+        _orders[index] = _orders[index].copyWith(
+          paymentQrUrl: res['qrUrl']?.toString(),
+          paymentQrString: res['qrString']?.toString(),
+          paymentVaNumber: res['vaNumber']?.toString(),
+          paymentBillKey: res['billKey']?.toString(),
+          paymentBillerCode: res['billerCode']?.toString(),
+        );
+        notifyListeners();
+        await _persist();
+      }
+    }
+    return res;
+  }
+
+  /// Sinkronisasi manual status pembayaran Midtrans (Sync API)
+  Future<OrderModel?> syncPaymentStatus(String orderId) async {
+    final updated = await _storageService.syncMidtransStatus(orderId);
+    if (updated != null) {
+      final index = _orders.indexWhere((o) => o.id == orderId);
+      if (index >= 0) {
+        final local = _orders[index];
+        _orders[index] = OrderModel(
+          id: updated.id,
+          shopName: updated.shopName,
+          createdAt: updated.createdAt,
+          status: updated.status,
+          items: updated.items,
+          receiver: updated.receiver,
+          phone: updated.phone,
+          addressLabel: updated.addressLabel ?? local.addressLabel,
+          shippingAddress: updated.shippingAddress,
+          courier: updated.courier,
+          courierService: updated.courierService,
+          trackingNumber: updated.trackingNumber,
+          paymentMethod: updated.paymentMethod,
+          paymentStatus: updated.paymentStatus,
+          paidAt: updated.paidAt ?? local.paidAt,
+          shippedAt: updated.shippedAt ?? local.shippedAt,
+          completedAt: updated.completedAt ?? local.completedAt,
+          paymentExpiresAt: updated.paymentExpiresAt ?? local.paymentExpiresAt,
+          cancellationReason:
+              updated.cancellationReason ?? local.cancellationReason,
+          shippingCost: updated.shippingCost,
+          serviceFee: updated.serviceFee,
+          reviewed: updated.reviewed || local.reviewed,
+          paymentQrUrl: updated.paymentQrUrl ?? local.paymentQrUrl,
+          paymentQrString: updated.paymentQrString ?? local.paymentQrString,
+          paymentVaNumber: updated.paymentVaNumber ?? local.paymentVaNumber,
+          paymentBillKey: updated.paymentBillKey ?? local.paymentBillKey,
+          paymentBillerCode:
+              updated.paymentBillerCode ?? local.paymentBillerCode,
+          checkoutOrigin: updated.checkoutOrigin ?? local.checkoutOrigin,
+        );
+      } else {
+        _orders.insert(0, updated);
+      }
+      _sortOrders();
+      notifyListeners();
+      await _persist();
+      return updated;
+    }
+    return null;
   }
 }
 

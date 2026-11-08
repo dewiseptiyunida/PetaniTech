@@ -96,7 +96,7 @@ Widget _a(BuildContext context, PostModel post) {
                         Text(
                           DateFormat(
                             'dd MMMM yyyy · hh:mm',
-                          ).format(post.dateCreated!),
+                          ).format(post.dateCreated ?? DateTime.now()),
                           style: Theme.of(
                             context,
                           ).textTheme.bodySmall?.copyWith(color: Colors.white),
@@ -106,7 +106,7 @@ Widget _a(BuildContext context, PostModel post) {
                     const SizedBox(height: 8),
                     Text(
                       post.title ?? 'Judul Berita',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -123,11 +123,12 @@ Widget _a(BuildContext context, PostModel post) {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(7),
                             child:
-                                post.userCreated?.avatar == null
+                                (post.userCreated?.avatar == null || post.userCreated!.avatar!.isEmpty)
                                     ? Container(
                                       height: 25,
                                       width: 25,
                                       color: Colors.grey,
+                                      child: const Icon(Icons.person, size: 16, color: Colors.white),
                                     )
                                     : Image.network(
                                       ApiClient.getAsset(
@@ -141,7 +142,9 @@ Widget _a(BuildContext context, PostModel post) {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${post.userCreated!.firstName} ${post.userCreated!.lastName}',
+                          '${post.userCreated?.firstName ?? ''} ${post.userCreated?.lastName ?? ''}'.trim().isEmpty
+                              ? 'Admin'
+                              : '${post.userCreated?.firstName ?? ''} ${post.userCreated?.lastName ?? ''}'.trim(),
                           style: Theme.of(
                             context,
                           ).textTheme.bodySmall?.copyWith(color: Colors.white),

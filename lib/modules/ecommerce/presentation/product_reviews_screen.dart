@@ -74,15 +74,16 @@ class _ProductReviewsScreenState extends State<ProductReviewsScreen> {
       appBar: AppBar(
         title: const Text(
           'Ulasan Pembeli',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Colors.black87),
         ),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        elevation: 0.5,
+        elevation: 0,
+        titleSpacing: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
+            Icons.arrow_back,
             color: Colors.black87,
             size: 19,
           ),

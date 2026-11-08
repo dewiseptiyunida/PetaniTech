@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:petanitech_mobile/core/app_theme.dart';
 import 'package:petanitech_mobile/core/consts.dart';
+import 'package:petanitech_mobile/logic/blocs/user/user_bloc.dart';
 import 'package:petanitech_mobile/modules/main/logic/blocs/home/home_bloc.dart';
 import 'package:petanitech_mobile/modules/main/logic/blocs/home/home_event.dart';
 import 'package:petanitech_mobile/modules/main/presentation/components/home/home_commodity.dart';
@@ -21,10 +22,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     Modular.get<HomeBloc>().add(RequestAll());
+    Modular.get<UserBloc>().add(LoadUser());
   }
 
   Future<void> onRefresh() async {
     Modular.get<HomeBloc>().add(RequestAll());
+    Modular.get<UserBloc>().add(LoadUser());
   }
 
   @override

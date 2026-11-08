@@ -30,7 +30,7 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) => UserModel(
   provider: json['provider'] as String?,
   externalIdentifier: json['external_identifier'] as String?,
   authData: json['auth_data'] as Map<String, dynamic>?,
-  emailNotifications: json['email_notifications'] as bool,
+  emailNotifications: (json['email_notifications'] as bool?) ?? false,
   appearance: json['appearance'] as String?,
   themeDark: json['theme_dark'] as String?,
   themeLight: json['theme_light'] as String?,

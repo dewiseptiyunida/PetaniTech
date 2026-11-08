@@ -20,17 +20,39 @@ class AuthRepository extends BaseRepository {
       );
       if (response.statusCode == 200) {
         final dynamic data = response.data;
-        ApiClient.saveTokens(
-          data['data']['access_token'],
-          data['data']['refresh_token'],
-        );
-        return Right(AuthModel.fromJson(data['data']));
+        String accessToken = '';
+        String refreshToken = '';
+        int expires = 3600;
+
+        if (data is Map<String, dynamic>) {
+          if (data['data'] != null && data['data'] is Map<String, dynamic>) {
+            accessToken = data['data']['access_token'] ?? '';
+            refreshToken = data['data']['refresh_token'] ?? accessToken;
+            expires = data['data']['expires'] ?? 3600;
+          } else if (data['token'] != null) {
+            accessToken = data['token'];
+            refreshToken = data['token'];
+          }
+        }
+
+        await ApiClient.saveTokens(accessToken, refreshToken);
+        return Right(AuthModel(
+          expires: expires,
+          refreshToken: refreshToken,
+          accessToken: accessToken,
+        ));
       } else {
         return Left("Login gagal. Coba lagi.");
       }
     } catch (e) {
-      if (e is DioException && CancelToken.isCancel(e)) {
-        return Left("Permintaan dibatalkan.");
+      if (e is DioException) {
+        if (CancelToken.isCancel(e)) {
+          return Left("Permintaan dibatalkan.");
+        }
+        if (e.response?.data != null && e.response?.data is Map) {
+          final err = e.response?.data['error'] ?? e.response?.data['message'];
+          if (err != null) return Left(err.toString());
+        }
       }
       return Left("Terjadi kesalahan: $e");
     }
@@ -46,17 +68,11 @@ class AuthRepository extends BaseRepository {
         cancelToken: cancelToken,
       );
 
-      if (response.statusCode == 204) {
-        ApiClient.clearTokens();
-        return const Right(true);
-      } else {
-        return const Left("Logout gagal.");
-      }
+      ApiClient.clearTokens();
+      return const Right(true);
     } catch (e) {
-      if (e is DioException && CancelToken.isCancel(e)) {
-        return Left("Permintaan dibatalkan.");
-      }
-      return Left("Terjadi kesalahan: $e");
+      ApiClient.clearTokens();
+      return const Right(true);
     }
   }
 
@@ -65,7 +81,7 @@ class AuthRepository extends BaseRepository {
     String email,
     String password,
   ) async {
-    final url = '$appUrl/users/register';
+    final url = '$appUrl/auth/register';
 
     try {
       final response = await dio.post(
@@ -78,13 +94,23 @@ class AuthRepository extends BaseRepository {
         }),
       );
 
-      if (response.statusCode == 204) {
-        return Right(true);
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        return const Right(true);
       } else {
-        return Left('Register gagal, coba lagi.');
+        return const Left('Register gagal, coba lagi.');
       }
     } catch (e) {
-      return Left('Terjadi kesalahan');
+      if (e is DioException &&
+          e.response?.data != null &&
+          e.response?.data is Map) {
+        final err = e.response?.data['error'] ?? e.response?.data['message'];
+        if (err != null) {
+          return Left(err.toString());
+        }
+      }
+      return Left('Terjadi kesalahan: $e');
     }
   }
 

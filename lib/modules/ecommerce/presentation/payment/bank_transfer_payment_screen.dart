@@ -2,6 +2,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../logic/controllers/order_controller.dart';
+import '../../logic/models/order_model.dart';
 import '../order_detail_screen.dart';
 
 class BankTransferPaymentScreen extends StatefulWidget {
@@ -10,6 +12,7 @@ class BankTransferPaymentScreen extends StatefulWidget {
   final String bankName;
   final String receiverName;
   final DateTime? orderCreatedAt;
+  final String? checkoutOrigin;
 
   const BankTransferPaymentScreen({
     super.key,
@@ -18,6 +21,7 @@ class BankTransferPaymentScreen extends StatefulWidget {
     required this.bankName,
     required this.receiverName,
     this.orderCreatedAt,
+    this.checkoutOrigin,
   });
 
   @override
@@ -36,16 +40,30 @@ class _BankTransferPaymentScreenState
   late final DateTime _paymentDeadline;
 
   int _secondsRemaining = 0;
+  bool _isLoadingVa = false;
+  String? _midtransVaNumber;
+  String? _midtransBillKey;
+  String? _midtransBillerCode;
 
   @override
   void initState() {
     super.initState();
 
-    _paymentDeadline = (widget.orderCreatedAt ?? DateTime.now()).add(
-      const Duration(hours: 24),
-    );
+    final order = orderController.findById(widget.orderNumber);
+    final orderCreationTime = order?.createdAt ?? widget.orderCreatedAt ?? DateTime.now();
+
+    // Waktu jatuh tempo konsisten 24 jam sejak pesanan dibuat & tidak direset saat bayar lagi
+    _paymentDeadline = order?.paymentExpiresAt ?? orderCreationTime.add(const Duration(hours: 24));
 
     _updateRemainingTime();
+
+    if (order?.paymentVaNumber != null && order!.paymentVaNumber!.isNotEmpty) {
+      _midtransVaNumber = order.paymentVaNumber;
+      _midtransBillKey = order.paymentBillKey;
+      _midtransBillerCode = order.paymentBillerCode;
+    } else {
+      _fetchVaFromMidtrans();
+    }
 
     if (_secondsRemaining > 0) {
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -55,14 +73,70 @@ class _BankTransferPaymentScreenState
 
         if (_secondsRemaining <= 0) {
           _timer?.cancel();
+          _cancelOrderIfExpired();
         }
       });
+    } else {
+      _cancelOrderIfExpired();
+    }
+  }
+
+  String _resolveBankCode(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('bca')) return 'bca';
+    if (lower.contains('bni')) return 'bni';
+    if (lower.contains('bri')) return 'bri';
+    if (lower.contains('permata')) return 'permata';
+    if (lower.contains('mandiri')) return 'mandiri';
+    return 'bca';
+  }
+
+  Future<void> _fetchVaFromMidtrans() async {
+    setState(() => _isLoadingVa = true);
+    try {
+      final bank = _resolveBankCode(widget.bankName);
+      final res = await orderController.chargeMidtrans(
+        widget.orderNumber,
+        paymentType: 'bank_transfer',
+        bank: bank,
+      );
+      if (mounted && res != null) {
+        setState(() {
+          _midtransVaNumber = res['vaNumber']?.toString();
+          _midtransBillKey = res['billKey']?.toString();
+          _midtransBillerCode = res['billerCode']?.toString();
+        });
+      }
+    } catch (_) {
+      // Abaikan error jika fallback
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingVa = false);
+      }
+    }
+  }
+
+
+
+  void _cancelOrderIfExpired() {
+    final order = orderController.findById(widget.orderNumber);
+    if (order != null && order.status == OrderStatus.awaitingPayment) {
+      orderController.cancelOrder(
+        widget.orderNumber,
+        reason: 'Waktu pembayaran telah habis',
+      );
     }
   }
 
   void _updateRemainingTime() {
     final seconds = _paymentDeadline.difference(DateTime.now()).inSeconds;
-    _secondsRemaining = seconds > 0 ? seconds : 0;
+    if (seconds <= 0) {
+      _secondsRemaining = 0;
+      _timer?.cancel();
+      _cancelOrderIfExpired();
+    } else {
+      _secondsRemaining = seconds;
+    }
   }
 
   @override
@@ -85,6 +159,14 @@ class _BankTransferPaymentScreenState
   }
 
   String get virtualAccountNumber {
+    if (_midtransVaNumber != null && _midtransVaNumber!.isNotEmpty) {
+      return _midtransVaNumber!;
+    }
+
+    if (_midtransBillKey != null && _midtransBillKey!.isNotEmpty) {
+      return _midtransBillKey!;
+    }
+
     final prefix = switch (widget.bankName.toUpperCase()) {
       'BCA' => '8801',
       'MANDIRI' => '8902',
@@ -179,12 +261,7 @@ class _BankTransferPaymentScreenState
   // ============================================================
 
   void _payLater() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OrderDetailScreen(orderId: widget.orderNumber),
-      ),
-    );
+    Navigator.pop(context);
   }
 
   // ============================================================
@@ -422,7 +499,7 @@ class _BankTransferPaymentScreenState
                       ),
                     ),
                     const Text(
-                      'Virtual Account (Dicek Otomatis)',
+                      'Virtual Account',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.black54,
@@ -437,58 +514,131 @@ class _BankTransferPaymentScreenState
             height: 22,
             thickness: 0.8,
           ),
-          const Text(
-            'Nomor Virtual Account',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  virtualAccountNumber,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                    color: Colors.black87,
+          if (_isLoadingVa)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(darkGreen),
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Menghubungkan Midtrans Virtual Account...',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            if (_midtransBillerCode != null && _midtransBillerCode!.isNotEmpty) ...[
+              const Text(
+                'Kode Perusahaan / Biller Code',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54,
                 ),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () => _copyToClipboard(
-                  virtualAccountNumber,
-                  'Nomor Virtual Account',
-                ),
-                icon: const Icon(
-                  Icons.copy_rounded,
-                  size: 14,
-                ),
-                label: const Text('Salin'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: lightGreen,
-                  foregroundColor: darkGreen,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _midtransBillerCode!,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _copyToClipboard(
+                      _midtransBillerCode!,
+                      'Kode Perusahaan',
+                    ),
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: const Text('Salin'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: lightGreen,
+                      foregroundColor: darkGreen,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                ],
               ),
+              const SizedBox(height: 10),
             ],
-          ),
+            Text(
+              _midtransBillKey != null && _midtransBillKey!.isNotEmpty
+                  ? 'Nomor Pembayaran (Bill Key)'
+                  : 'Nomor Virtual Account',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    virtualAccountNumber,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => _copyToClipboard(
+                    virtualAccountNumber,
+                    _midtransBillKey != null ? 'Nomor Pembayaran' : 'Nomor Virtual Account',
+                  ),
+                  icon: const Icon(
+                    Icons.copy_rounded,
+                    size: 14,
+                  ),
+                  label: const Text('Salin'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: lightGreen,
+                    foregroundColor: darkGreen,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
             'Nama Rekening: PetaniTech / ${widget.receiverName}',
@@ -675,7 +825,7 @@ class _BankTransferPaymentScreenState
           child: OutlinedButton(
             onPressed: _payLater,
             style: OutlinedButton.styleFrom(
-              side: BorderSide(color: primaryGreen),
+              side: BorderSide(color: primaryGreen.withValues(alpha: 0.5)),
               foregroundColor: darkGreen,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -683,7 +833,7 @@ class _BankTransferPaymentScreenState
             ),
             child: const Text(
               'Bayar Nanti',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),
           ),
         ),

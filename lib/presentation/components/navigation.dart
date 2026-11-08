@@ -24,7 +24,7 @@ class _PTNavigationState extends State<PTNavigation> {
     super.initState();
     final currentTab = Modular.get<NavigationBloc>().state.currentTab;
     final index = NavigationTab.values.indexOf(currentTab);
-    if (index != -1) {
+    if (index != -1 && index < Consts.bottomNavigation.length) {
       _tabIndex = index;
     }
   }
@@ -35,7 +35,9 @@ class _PTNavigationState extends State<PTNavigation> {
       bloc: Modular.get<NavigationBloc>(),
       listener: (context, state) {
         final index = NavigationTab.values.indexOf(state.currentTab);
-        if (index != -1 && index != _tabIndex) {
+        if (index != -1 &&
+            index < Consts.bottomNavigation.length &&
+            index != _tabIndex) {
           setState(() {
             _tabIndex = index;
           });
@@ -50,15 +52,15 @@ class _PTNavigationState extends State<PTNavigation> {
         levels:
             Consts.bottomNavigation.map((e) => e["name"] as String).toList(),
         activeLevelsStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontSize: 8,
+          fontWeight: FontWeight.w400,
           color: Colors.white,
         ),
         inactiveLevelsStyle: const TextStyle(
-          fontSize: 12,
+          fontSize: 8,
           color: Colors.white70,
         ),
-        circleWidth: 35,
+        circleWidth: 38,
         cornerRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
           topRight: Radius.circular(8),

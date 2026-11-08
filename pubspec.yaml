@@ -45,7 +45,8 @@ dependencies:
   connectivity_plus: ^6.1.4
   cached_network_image: ^3.4.1
   provider: ^6.1.5+1
-    # New dependencies for PostgreSQL integration
+  path_provider: ^2.1.5
+  # New dependencies for PostgreSQL integration
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:petanitech_mobile/core/consts.dart';
 import 'package:petanitech_mobile/core/app_theme.dart';
 import 'package:petanitech_mobile/data/models/user_model.dart';
@@ -44,97 +48,134 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userBloc = Modular.get<UserBloc>();
-    if (userBloc.state is UserLoaded) {
-      final user = (userBloc.state as UserLoaded).user;
-      return SingleChildScrollView(
-        child: Column(
-          children: [
-            _profileHeader(user),
-            const SizedBox(height: 20),
-            _myOrdersSection(context, _orderCtrl),
-            const SizedBox(height: 20),
-            _personalInformation(context, user),
-            const SizedBox(height: 20),
-            _utilitiesPanel(),
-            const SizedBox(height: 40),
-          ],
-        ),
-      );
-    } else {
-      return const Center(child: CircularProgressIndicator());
-    }
+    return BlocBuilder<UserBloc, UserState>(
+      bloc: Modular.get<UserBloc>(),
+      builder: (context, state) {
+        if (state is UserLoaded) {
+          final user = state.user;
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _profileHeader(context, user),
+                const SizedBox(height: 20),
+                _myOrdersSection(context, _orderCtrl),
+                const SizedBox(height: 20),
+                _personalInformation(context, user),
+                const SizedBox(height: 24),
+                _utilitiesPanel(),
+                const SizedBox(height: 40),
+              ],
+            ),
+          );
+        } else if (state is UserError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_off_outlined,
+                      size: 48, color: Colors.grey),
+                  const SizedBox(height: 12),
+                  Text(
+                    state.message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Modular.get<UserBloc>().add(LoadUser()),
+                    child: const Text('Muat Ulang Profil'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        } else {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+      },
+    );
   }
 }
 
-Widget _profileHeader(UserModel user) {
+Widget _profileHeader(BuildContext context, UserModel user) {
   return Container(
     width: double.infinity,
     padding: const EdgeInsets.symmetric(vertical: Consts.padding),
     decoration: BoxDecoration(
       color: AppTheme.accentColor,
-      borderRadius: BorderRadius.only(
+      borderRadius: const BorderRadius.only(
         bottomLeft: Radius.circular(16.0),
         bottomRight: Radius.circular(16.0),
       ),
     ),
     child: Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(width: 4, color: Colors.white),
-            backgroundBlendMode: BlendMode.srcOver,
-            color: Colors.white,
-          ),
-          child: CircleAvatar(
-            radius: 40,
-            backgroundImage: NetworkImage(
-              ApiClient.getAsset(user.avatar ?? ''),
-            ),
+        GestureDetector(
+          onTap: () => _showEditProfileSheet(context),
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(width: 4, color: Colors.white),
+                  color: Colors.white,
+                ),
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage:
+                      (user.avatar != null && user.avatar!.trim().isNotEmpty)
+                          ? CachedNetworkImageProvider(
+                              ApiClient.getAsset(user.avatar!.trim()),
+                            )
+                          : null,
+                  child: (user.avatar == null || user.avatar!.trim().isEmpty)
+                      ? const Icon(Icons.person, size: 40, color: Colors.grey)
+                      : null,
+                ),
+              ),
+              Positioned(
+                bottom: 2,
+                right: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(40),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.edit,
+                    size: 14,
+                    color: AppTheme.accentColor,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
         Text(
-          '${user.firstName} ${user.lastName}',
-          style: TextStyle(
+          '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim().isEmpty
+              ? (user.email ?? 'Petani')
+              : '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim(),
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _personalInformation(BuildContext context, UserModel user) {
-  return Container(
-    padding: EdgeInsets.symmetric(horizontal: Consts.padding16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle(
-          tr('profile.personal_information'),
-          trailing: GestureDetector(
-            onTap: () => _showEditProfileSheet(context),
-            child: Text(
-              tr('profile.edit'),
-              style: TextStyle(
-                color: AppTheme.accentColor,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: 8),
-        _infoTile(Icons.email, tr('profile.email'), '${user.email}'),
-        _infoTile(Icons.phone_android, tr('profile.phone'), user.phone ?? '-'),
-        _infoTile(
-          Icons.location_on,
-          tr('profile.address'),
-          user.location ?? '-',
         ),
       ],
     ),
@@ -333,6 +374,39 @@ Widget _orderShortcut({
   );
 }
 
+Widget _personalInformation(BuildContext context, UserModel user) {
+  return Container(
+    padding: EdgeInsets.symmetric(horizontal: Consts.padding16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(
+          tr('profile.personal_information'),
+          trailing: GestureDetector(
+            onTap: () => _showEditProfileSheet(context),
+            child: Text(
+              tr('profile.edit'),
+              style: TextStyle(
+                color: AppTheme.accentColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 8),
+        _infoTile(Icons.email, tr('profile.email'), '${user.email}'),
+        _infoTile(Icons.phone_android, tr('profile.phone'), user.phone ?? '-'),
+        _infoTile(
+          Icons.location_on,
+          tr('profile.address'),
+          user.location ?? '-',
+        ),
+      ],
+    ),
+  );
+}
+
 Widget _infoTile(IconData icon, String label, String value) {
   return Container(
     margin: const EdgeInsets.symmetric(vertical: 2),
@@ -404,7 +478,7 @@ Widget _utilitiesPanel() {
           Icons.info_outline,
           tr('profile.about_app'),
           onTap: () {
-            debugPrint('about_app');
+            debugPrint('clicks');
           },
         ),
         _utilityTile(
@@ -480,16 +554,9 @@ Widget _sectionTitle(String title, {Widget? trailing}) {
 }
 
 void _showEditProfileSheet(BuildContext context) {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController locationController = TextEditingController();
   final userBloc = Modular.get<UserBloc>();
+  if (userBloc.state is! UserLoaded) return;
   final user = (userBloc.state as UserLoaded).user;
-  nameController.text = '${user.firstName} ${user.lastName}';
-  emailController.text = user.email ?? '';
-  phoneController.text = user.phone ?? '';
-  locationController.text = user.location ?? '';
 
   showModalBottomSheet(
     context: context,
@@ -497,97 +564,266 @@ void _showEditProfileSheet(BuildContext context) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          top: Consts.padding16,
-          left: Consts.padding16,
-          right: Consts.padding16,
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 4,
-              width: 42,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Color(0xCCCCCCCC),
-                borderRadius: BorderRadius.circular(100),
-              ),
-            ),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.edit,
-                      color: AppTheme.accentColor,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      tr('profile.edit'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ],
-                ),
-                GestureDetector(
-                  child: const Icon(Icons.close, color: Color(0xCCCCCCCC)),
-                  onTap: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PTTextField(
-                      hintText: tr('profile.name'),
-                      icon: Icons.person,
-                      controller: nameController,
-                    ),
-                    SizedBox(height: 16),
-                    PTTextField(
-                      hintText: tr('profile.email'),
-                      icon: Icons.email,
-                      controller: emailController,
-                    ),
-                    SizedBox(height: 16),
-                    PTTextField(
-                      hintText: tr('profile.phone'),
-                      icon: Icons.phone,
-                      controller: phoneController,
-                    ),
-                    SizedBox(height: 16),
-                    PTTextField(
-                      hintText: tr('profile.location'),
-                      icon: Icons.location_city,
-                      controller: locationController,
-                    ),
-                    SizedBox(height: 32),
-                    PTButton(
-                      label: tr('profile.save'),
-                      onPressed: () {},
-                      styleBuilder: PrimaryButtonStyleBuilder(),
-                    ),
-                    SizedBox(height: 80),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
+    builder: (context) => _EditProfileSheet(user: user),
   );
+}
+
+class _EditProfileSheet extends StatefulWidget {
+  final UserModel user;
+  const _EditProfileSheet({required this.user});
+
+  @override
+  State<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends State<_EditProfileSheet> {
+  late final TextEditingController nameController;
+  late final TextEditingController phoneController;
+  late final TextEditingController locationController;
+
+  XFile? _selectedImage;
+  Uint8List? _selectedBytes;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = widget.user;
+    nameController = TextEditingController(
+      text: '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim(),
+    );
+    phoneController = TextEditingController(text: user.phone ?? '');
+    locationController = TextEditingController(text: user.location ?? '');
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    locationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _selectedImage = image;
+          _selectedBytes = bytes;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memilih gambar: $e')),
+        );
+      }
+    }
+  }
+
+  void _saveProfile() {
+    final userBloc = Modular.get<UserBloc>();
+    final trimmed = nameController.text.trim();
+    final names = trimmed.isNotEmpty ? trimmed.split(' ') : <String>[];
+    final firstName = names.isNotEmpty ? names.first : '';
+    final lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    userBloc.add(
+      UpdateUser(
+        firstName: firstName,
+        lastName: lastName,
+        phone: phoneController.text.trim(),
+        avatar: widget.user.avatar,
+        avatarFile: _selectedImage,
+        location: locationController.text.trim(),
+      ),
+    );
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profil berhasil diperbarui')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = widget.user;
+    final hasCurrentAvatar =
+        user.avatar != null && user.avatar!.trim().isNotEmpty;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: Consts.padding16,
+        left: Consts.padding16,
+        right: Consts.padding16,
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 4,
+            width: 42,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xCCCCCCCC),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.edit,
+                    color: AppTheme.accentColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    tr('profile.edit'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                child: const Icon(Icons.close, color: Color(0xCCCCCCCC)),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Photo picker widget
+                  Center(
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    width: 3,
+                                    color: AppTheme.accentColor,
+                                  ),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 46,
+                                  backgroundColor: Colors.grey[200],
+                                  backgroundImage: _selectedBytes != null
+                                      ? MemoryImage(_selectedBytes!)
+                                      : (hasCurrentAvatar
+                                          ? CachedNetworkImageProvider(
+                                              ApiClient.getAsset(
+                                                user.avatar!.trim(),
+                                              ),
+                                            )
+                                          : null) as ImageProvider?,
+                                  child: (_selectedBytes == null &&
+                                          !hasCurrentAvatar)
+                                      ? const Icon(
+                                          Icons.person,
+                                          size: 46,
+                                          color: Colors.grey,
+                                        )
+                                      : null,
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.accentColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _pickImage,
+                          icon: const Icon(
+                            Icons.photo_library_outlined,
+                            size: 16,
+                            color: AppTheme.accentColor,
+                          ),
+                          label: Text(
+                            _selectedImage != null
+                                ? 'Ubah Gambar (${_selectedImage!.name})'
+                                : 'Pilih Foto dari Galeri',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.accentColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  PTTextField(
+                    hintText: tr('profile.name'),
+                    icon: Icons.person,
+                    controller: nameController,
+                  ),
+                  const SizedBox(height: 16),
+                  PTTextField(
+                    hintText: tr('profile.phone'),
+                    icon: Icons.phone,
+                    controller: phoneController,
+                  ),
+                  const SizedBox(height: 16),
+                  PTTextField(
+                    hintText: tr('profile.location'),
+                    icon: Icons.location_city,
+                    controller: locationController,
+                  ),
+                  const SizedBox(height: 32),
+                  PTButton(
+                    label: _isLoading ? 'Menyimpan...' : tr('profile.save'),
+                    onPressed: _isLoading ? () {} : _saveProfile,
+                    styleBuilder: PrimaryButtonStyleBuilder(),
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

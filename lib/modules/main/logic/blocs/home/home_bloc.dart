@@ -28,41 +28,35 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     emit(HomeLoading());
     try {
       final result = await _commodityRepository.getCommodities();
-      result.fold((error) => emit(HomeError(message: error)), (commodities) {
+      result.fold((error) => null, (commodities) {
         this.commodities.clear();
         this.commodities.addAll(commodities);
       });
-    } catch (e) {
-      emit(HomeError(message: e.toString()));
-    }
+    } catch (_) {}
 
     try {
       final result = await _postRepository.getPosts();
-      result.fold((error) => emit(HomeError(message: error)), (posts) {
+      result.fold((error) => null, (posts) {
         this.posts.clear();
         this.posts.addAll(posts);
       });
-    } catch (e) {
-      emit(HomeError(message: e.toString()));
-    }
+    } catch (_) {}
 
     try {
       final result = await _communityRepository.getCommunities(
         fields: 'id,name,description,image,visibility,count(members)',
       );
-      result.fold((error) => emit(HomeError(message: error)), (communities) {
+      result.fold((error) => null, (communities) {
         this.communities.clear();
         this.communities.addAll(communities);
       });
-    } catch (e) {
-      emit(HomeError(message: e.toString()));
-    }
+    } catch (_) {}
 
     emit(
       HomeLoaded(
-        commodities: commodities,
-        posts: posts,
-        communities: communities,
+        commodities: List.from(commodities),
+        posts: List.from(posts),
+        communities: List.from(communities),
       ),
     );
   }

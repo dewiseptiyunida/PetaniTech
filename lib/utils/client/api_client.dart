@@ -139,6 +139,10 @@ class ApiClient {
   }
 
   static String getAsset(String path) {
-    return '$appUrl/assets/$path';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    final clean = path.startsWith('/') ? path.substring(1) : path;
+    return '$appUrl/assets/$clean';
   }
 }

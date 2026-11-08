@@ -39,12 +39,12 @@ class ItemFarm extends StatelessWidget {
                   mapController: controller,
                   options: MapOptions(
                     initialCenter:
-                        polygon.isNotEmpty
+                        polygon.length >= 3
                             ? FlutterMapMath().midpointBetween(
                               polygon[2],
                               polygon[0],
                             )
-                            : LatLng(0, 0),
+                            : (polygon.isNotEmpty ? polygon[0] : const LatLng(-6.2088, 106.8456)),
                     initialZoom: 17,
                   ),
                   children: [
@@ -53,17 +53,18 @@ class ItemFarm extends StatelessWidget {
                           "http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
                       subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
                     ),
-                    PolygonLayer(
-                      polygons: [
-                        Polygon(
-                          points: polygon,
-                          color: Color(0xFFE0FF15).withAlpha(100),
-                          borderStrokeWidth: 3,
-                          borderColor: Color(0xFFE0FF15),
-                          strokeCap: StrokeCap.round,
-                        ),
-                      ],
-                    ),
+                    if (polygon.isNotEmpty)
+                      PolygonLayer(
+                        polygons: [
+                          Polygon(
+                            points: polygon,
+                            color: const Color(0xFFE0FF15).withAlpha(100),
+                            borderStrokeWidth: 3,
+                            borderColor: const Color(0xFFE0FF15),
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),

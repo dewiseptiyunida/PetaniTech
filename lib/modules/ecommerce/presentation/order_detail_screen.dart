@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'order_invoice_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:petanitech_mobile/utils/client/api_client.dart';
 import '../logic/controllers/order_controller.dart';
 import '../logic/controllers/review_controller.dart';
 import '../logic/models/order_model.dart';
 import 'add_review_screen.dart';
 import 'product_reviews_screen.dart';
+import 'shopping_cart_screen.dart';
 import 'payment/bank_transfer_payment_screen.dart';
 import 'payment/qris_payment_screen.dart';
+import 'store_screen.dart';
 
 const _green = Color(0xFF7CB35A);
 const _lightGreen = Color(0xFFE8F1E2);
@@ -16,10 +22,12 @@ class OrderDetailScreen extends StatefulWidget {
     super.key,
     required this.orderId,
     this.controller,
+    this.fromSource,
   });
 
   final String orderId;
   final OrderController? controller;
+  final String? fromSource;
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
@@ -28,18 +36,59 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late OrderController _controller;
   bool _openingPayment = false;
+  Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? orderController;
     _controller.addListener(_onStateChanged);
+    _controller.cancelExpiredOrders();
+    _startCountdownTimer();
   }
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _controller.removeListener(_onStateChanged);
     super.dispose();
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final order = _controller.findById(widget.orderId);
+      if (order != null && order.status == OrderStatus.awaitingPayment) {
+        final deadline = order.paymentExpiresAt ??
+            order.createdAt.add(
+              order.paymentMethod.toLowerCase().contains('qris')
+                  ? const Duration(minutes: 10)
+                  : const Duration(hours: 24),
+            );
+        if (DateTime.now().isAfter(deadline)) {
+          _controller.cancelExpiredOrders();
+        }
+        setState(() {});
+      }
+    });
+  }
+
+  String _formatCountdown(OrderModel order) {
+    final deadline = order.paymentExpiresAt ??
+        order.createdAt.add(
+          order.paymentMethod.toLowerCase().contains('qris')
+              ? const Duration(minutes: 10)
+              : const Duration(hours: 24),
+        );
+    final diff = deadline.difference(DateTime.now());
+    if (diff.isNegative || diff.inSeconds <= 0) {
+      return '00:00:00 (Waktu Habis)';
+    }
+    final hours = diff.inHours.toString().padLeft(2, '0');
+    final minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
   }
 
   void _onStateChanged() {
@@ -48,10 +97,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   String _rupiah(int value) =>
       'Rp ${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
-
   String _formatDateTime(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} '
       '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} WIB';
+
+  void _onBackPressed() {
+    final order = _controller.findById(widget.orderId);
+    final origin = widget.fromSource ?? order?.checkoutOrigin;
+
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      if (origin == 'cart') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ShoppingCartScreen()),
+        );
+      } else {
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    }
+  }
 
   void _confirmCancelOrder(BuildContext context, OrderModel order) {
     if (order.status == OrderStatus.shipped ||
@@ -59,28 +125,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         order.status == OrderStatus.cancelled) {
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Text(
-            'Pembatalan Tidak Tersedia',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-          ),
-          content: Text(
-            'Pesanan dengan status "${order.status.label}" tidak dapat dibatalkan.',
-            style: const TextStyle(fontSize: 13),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _green,
-                foregroundColor: Colors.white,
+        builder:
+            (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: const Text('Mengerti'),
+              title: const Text(
+                'Pembatalan Tidak Tersedia',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+              content: Text(
+                'Pesanan dengan status "${order.status.label}" tidak dapat dibatalkan.',
+                style: const TextStyle(fontSize: 13),
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _green,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Mengerti'),
+                ),
+              ],
             ),
-          ],
-        ),
       );
       return;
     }
@@ -143,69 +211,79 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     const SizedBox(height: 6),
                     Text(
                       'Pilih alasan yang paling sesuai untuk pembatalan pesanan #${order.id}.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                     const Divider(height: 20, thickness: 0.8),
                     Flexible(
                       child: SingleChildScrollView(
                         child: Column(
-                          children: reasons.map((reason) {
-                            final isChosen = selectedReason == reason;
-                            return InkWell(
-                              onTap: () {
-                                setSheetState(() {
-                                  selectedReason = reason;
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isChosen
-                                      ? _lightGreen.withOpacity(0.5)
-                                      : Colors.transparent,
+                          children:
+                              reasons.map((reason) {
+                                final isChosen = selectedReason == reason;
+                                return InkWell(
+                                  onTap: () {
+                                    setSheetState(() {
+                                      selectedReason = reason;
+                                    });
+                                  },
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: isChosen
-                                        ? _green
-                                        : Colors.grey.shade200,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isChosen
-                                          ? Icons.radio_button_checked_rounded
-                                          : Icons.radio_button_off_rounded,
-                                      color: isChosen
-                                          ? _darkGreen
-                                          : Colors.grey.shade400,
-                                      size: 18,
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        reason,
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: isChosen
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                          color: isChosen
-                                              ? _darkGreen
-                                              : Colors.black87,
-                                        ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          isChosen
+                                              ? _lightGreen.withOpacity(0.5)
+                                              : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color:
+                                            isChosen
+                                                ? _green
+                                                : Colors.grey.shade200,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isChosen
+                                              ? Icons
+                                                  .radio_button_checked_rounded
+                                              : Icons.radio_button_off_rounded,
+                                          color:
+                                              isChosen
+                                                  ? _darkGreen
+                                                  : Colors.grey.shade400,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            reason,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight:
+                                                  isChosen
+                                                      ? FontWeight.w700
+                                                      : FontWeight.w500,
+                                              color:
+                                                  isChosen
+                                                      ? _darkGreen
+                                                      : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                         ),
                       ),
                     ),
@@ -245,12 +323,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         onPressed: () {
                           final finalReason =
                               isOther &&
-                                      otherReasonController.text.trim().isNotEmpty
+                                      otherReasonController.text
+                                          .trim()
+                                          .isNotEmpty
                                   ? otherReasonController.text.trim()
                                   : selectedReason;
 
                           Navigator.pop(sheetCtx);
-                          _controller.cancelOrder(order.id, reason: finalReason);
+                          _controller.cancelOrder(
+                            order.id,
+                            reason: finalReason,
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Pesanan berhasil dibatalkan.'),
@@ -320,48 +403,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
-  void _shipOrder(OrderModel order) {
-    final trk =
-        'PT-TRK-${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}';
-    _controller.updateStatus(
-      order.id,
-      OrderStatus.shipped,
-      trackingNumber: trk,
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Pesanan telah diserahkan ke kurir dan sedang dalam perjalanan.',
-        ),
-        backgroundColor: Color(0xFF7B61B5),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _completeOrder(OrderModel order) {
-    _controller.updateStatus(
-      order.id,
-      OrderStatus.completed,
-      paymentStatus: 'Lunas',
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Pesanan selesai! Terima kasih telah berbelanja di PetaniTech.',
-        ),
-        backgroundColor: _darkGreen,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   void _openAddReview(OrderModel order) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => AddReviewScreen(order: order),
-      ),
+      MaterialPageRoute(builder: (_) => AddReviewScreen(order: order)),
     ).then((result) {
       if (result == true) {
         _controller.markReviewed(order.id);
@@ -378,162 +423,168 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder:
+          (ctx) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Ulasan Anda',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close_rounded, size: 22),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const Divider(height: 20, thickness: 0.8),
-              if (review != null) ...[
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: _lightGreen,
-                      child: const Icon(
-                        Icons.person_rounded,
-                        color: _darkGreen,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            review.userName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                          Text(
-                            review.productName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Row(
-                      children: List.generate(
-                        5,
-                        (index) => Icon(
-                          index < review.rating
-                              ? Icons.star_rounded
-                              : Icons.star_outline_rounded,
-                          color: Colors.amber.shade700,
-                          size: 16,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Ulasan Anda',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                if (review.variant != null && review.variant!.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Varian: ${review.variant}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: _darkGreen,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Text(
-                  review.comment,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: Colors.grey.shade800,
-                    height: 1.4,
-                  ),
-                ),
-                if (review.courierRating > 0) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.local_shipping_outlined,
-                        size: 16,
-                        color: Colors.black54,
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded, size: 22),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
-                      const SizedBox(width: 6),
+                    ],
+                  ),
+                  const Divider(height: 20, thickness: 0.8),
+                  if (review != null) ...[
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: _lightGreen,
+                          child: const Icon(
+                            Icons.person_rounded,
+                            color: _darkGreen,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                review.userName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                review.productName,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: List.generate(
+                            5,
+                            (index) => Icon(
+                              index < review.rating
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              color: Colors.amber.shade700,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (review.variant != null &&
+                        review.variant!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        'Penilaian Kurir: ${review.courierRating} / 5',
+                        'Varian: ${review.variant}',
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
+                          color: _darkGreen,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
+                    const SizedBox(height: 10),
+                    Text(
+                      review.comment,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.grey.shade800,
+                        height: 1.4,
+                      ),
+                    ),
+                    if (review.courierRating > 0) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.local_shipping_outlined,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Penilaian Kurir: ${review.courierRating} / 5',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ] else ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text('Ulasan untuk pesanan ini telah tercatat.'),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        if (order.items.isNotEmpty) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => ProductReviewsScreen(
+                                    productName: order.items.first.productName,
+                                    productCategory: order.items.first.category,
+                                  ),
+                            ),
+                          );
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _darkGreen,
+                        side: const BorderSide(color: _green),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Lihat Semua Ulasan Produk',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
-              ] else ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Text('Ulasan untuk pesanan ini telah tercatat.'),
-                ),
-              ],
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    if (order.items.isNotEmpty) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProductReviewsScreen(
-                            productName: order.items.first.productName,
-                            productCategory: order.items.first.category,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _darkGreen,
-                    side: const BorderSide(color: _green),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Lihat Semua Ulasan Produk',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -547,338 +598,354 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       );
     }
 
-    final stages = <OrderStatus>[
-      OrderStatus.awaitingPayment,
-      OrderStatus.processing,
-      OrderStatus.shipped,
-      OrderStatus.completed,
-    ];
-    final activeIndex = stages.indexOf(order.status);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9F5),
-      appBar: AppBar(
-        title: const Text(
-          'Detail Pesanan',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
-        ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        elevation: 0.5,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Colors.black87,
-            size: 19,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _onBackPressed();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF4F4F4),
+        appBar: AppBar(
+          titleSpacing: 0,
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          elevation: 0.5,
+          title: const Text(
+            'Rincian Pesanan',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: Colors.black87,
+            ),
+          ),
+          centerTitle: false,
+          leading: IconButton(
+            onPressed: _onBackPressed,
+            icon: const Icon(Icons.arrow_back, color: Colors.black87, size: 20),
           ),
         ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Header Status
-          _panel(children: [
-            Row(children: [
-              Expanded(
-                child: Text(
-                  'Pesanan #${order.id}',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+        body: RefreshIndicator(
+          color: _darkGreen,
+          onRefresh: () async {
+            await _controller.loadFromStorage();
+            await _controller.cancelExpiredOrders();
+            if (mounted) setState(() {});
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+            children: [
+            _orderInfoPanel(
+              children: [
+                _statusSection(order),
+                _shippingCard(order),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFE9EDE6),
                 ),
-              ),
-              _statusPill(order.status),
-            ]),
-            const SizedBox(height: 7),
-            Text(
-              'Waktu Pemesanan: ${_formatDateTime(order.createdAt)}',
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
+                _addressSection(order),
+              ],
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'Perkembangan Pesanan',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            if (order.status == OrderStatus.cancelled)
-              const ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.cancel_rounded, color: Color(0xFFD9534F), size: 32),
-                title: Text('Pesanan Dibatalkan',
-                    style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFD9534F))),
-                subtitle: Text('Pesanan ini telah dibatalkan dan tidak diproses lebih lanjut.',
-                    style: TextStyle(fontSize: 12)),
-              )
-            else
-              ...List.generate(stages.length, (i) {
-                final done = activeIndex >= i;
-                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  SizedBox(
-                    width: 28,
-                    child: Column(children: [
-                      Icon(
-                        done ? Icons.check_circle : Icons.circle_outlined,
-                        color: done ? _darkGreen : Colors.black26,
+            const SizedBox(height: 14),
+
+            _panel(
+              children: [
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => StoreScreen(
+                              storeName: order.shopName,
+                              initialProducts:
+                                  order.items
+                                      .map(
+                                        (item) => {
+                                          'name': item.productName,
+                                          'category': item.category,
+                                          'price': item.price,
+                                          'icon': item.icon,
+                                          'image': item.image,
+                                          'shopName': order.shopName,
+                                        },
+                                      )
+                                      .toList(),
+                            ),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.storefront_outlined,
+                        color: _darkGreen,
                         size: 20,
                       ),
-                      if (i < stages.length - 1)
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          order.shopName,
+                          style: const TextStyle(
+                            color: _darkGreen,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: _darkGreen,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ...order.items.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
                         Container(
-                          width: 2,
-                          height: 28,
-                          color: activeIndex > i ? _green : Colors.black12,
-                        ),
-                    ]),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 2, bottom: 12),
-                      child: Text(
-                        stages[i].label,
-                        style: TextStyle(
-                          fontWeight: done ? FontWeight.w800 : FontWeight.w500,
-                          color: done ? Colors.black87 : Colors.black45,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                ]);
-              }),
-          ]),
-          const SizedBox(height: 12),
-
-          // Produk Dipesan
-          _panel(title: 'Produk Dipesan (${order.shopName})', children: [
-            ...order.items.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: _lightGreen,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(item.icon, color: _darkGreen, size: 26),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.productName,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 13)),
-                          if (item.variant != null &&
-                              item.variant!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text('Varian: ${item.variant}',
-                                style: const TextStyle(
+                          width: 76,
+                          height: 76,
+                          decoration: BoxDecoration(
+                            color: _lightGreen,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child:
+                              (item.image != null && item.image!.isNotEmpty)
+                                  ? Image.network(
+                                    ApiClient.getAsset(item.image!),
+                                    fit: BoxFit.cover,
+                                    width: 76,
+                                    height: 76,
+                                    errorBuilder:
+                                        (_, __, ___) => Icon(
+                                          item.icon,
+                                          color: _darkGreen,
+                                          size: 34,
+                                        ),
+                                  )
+                                  : Icon(
+                                    item.icon,
                                     color: _darkGreen,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                          const SizedBox(height: 3),
-                          Text('${item.quantity} × ${_rupiah(item.price)}',
-                              style: const TextStyle(
-                                  color: Colors.black54, fontSize: 11.5)),
-                        ],
+                                    size: 34,
+                                  ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                                  Text(
+                                    item.productName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if (item.variant != null &&
+                                      item.variant!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Varian: ${item.variant}',
+                                      style: const TextStyle(
+                                        color: _darkGreen,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '${item.quantity} × ${_rupiah(item.price)}',
+                                    style: const TextStyle(
+                                      color: Colors.black54,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          _rupiah(item.subtotal),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFE9EDE6),
+                ),
+                const Padding(padding: EdgeInsets.only(bottom: 10)),
+                _row('Subtotal Produk', _rupiah(order.productTotal)),
+                _row('Subtotal Pengiriman', _rupiah(order.shippingCost)),
+                _row('Biaya Layanan', _rupiah(order.serviceFee)),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFE9EDE6),
+                ),
+                const Padding(padding: EdgeInsets.only(bottom: 8)),
+                _row('Total Pembayaran', _rupiah(order.total), bold: true),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            _panel(
+              title: 'Rincian Pembayaran',
+              children: [
+                _row('Metode Pembayaran', order.paymentMethod),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Nota Pesanan / Faktur',
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
                       ),
                     ),
-                    Text(_rupiah(item.subtotal),
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                  ]),
-                )),
-          ]),
-          const SizedBox(height: 12),
-
-          // Alamat Pengiriman
-          _panel(title: 'Alamat Pengiriman', children: [
-            Text(order.receiver,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-            const SizedBox(height: 3),
-            Text(order.phone, style: const TextStyle(color: Colors.black54, fontSize: 12)),
-            const SizedBox(height: 6),
-            Text(order.shippingAddress, style: const TextStyle(height: 1.4, fontSize: 12)),
-          ]),
-          const SizedBox(height: 12),
-
-          // Informasi Pengiriman
-          _panel(title: 'Informasi Pengiriman', children: [
-            _row('Kurir', order.courier),
-            _row('Layanan', order.courierService),
-            _row('Nomor Resi',
-                order.trackingNumber.isEmpty ? 'Belum tersedia' : order.trackingNumber),
-          ]),
-          const SizedBox(height: 12),
-
-          // Informasi Pembatalan (jika pesanan dibatalkan)
-          if (order.status == OrderStatus.cancelled &&
-              order.cancellationReason != null &&
-              order.cancellationReason!.isNotEmpty) ...[
-            _panel(
-              title: 'Informasi Pembatalan',
-              children: [
-                _row(
-                  'Alasan Pembatalan',
-                  order.cancellationReason!,
-                  valueColor: const Color(0xFFD9534F),
-                  bold: true,
+                    Material(
+                      color: _lightGreen.withOpacity(0.65),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        onTap: () => _openInvoice(order),
+                        borderRadius: BorderRadius.circular(10),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.receipt_long_rounded,
+                                color: _darkGreen,
+                                size: 15,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'Lihat Nota',
+                                style: TextStyle(
+                                  color: _darkGreen,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              SizedBox(width: 3),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: _darkGreen,
+                                size: 16,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 12),
-          ],
 
-          // Rincian Pembayaran
-          _panel(title: 'Rincian Pembayaran', children: [
-            _row('Metode Pembayaran', order.paymentMethod),
-            _row('Status Pembayaran', order.paymentStatus,
-                valueColor: order.paymentStatus == 'Lunas'
-                    ? _darkGreen
-                    : const Color(0xFFE69B26)),
-            const Divider(height: 18),
-            _row('Subtotal Produk', _rupiah(order.productTotal)),
-            _row('Ongkos Kirim', _rupiah(order.shippingCost)),
-            _row('Biaya Layanan', _rupiah(order.serviceFee)),
-            const Divider(height: 18),
-            _row('Total Pembayaran', _rupiah(order.total), bold: true),
-          ]),
-          const SizedBox(height: 16),
-
-          // ============================================================
-          // AKSI PESANAN
-          // ============================================================
-
-          // Kasus 1: Belum Bayar
-          if (order.status == OrderStatus.awaitingPayment) ...[
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: _openingPayment ? null : () => _payNow(order),
-                icon: const Icon(Icons.payment_rounded, size: 20),
-                label: const Text(
-                  'Bayar Sekarang',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 44,
-              child: OutlinedButton.icon(
-                onPressed: () => _confirmCancelOrder(context, order),
-                icon: const Icon(Icons.cancel_outlined, size: 18),
-                label: const Text('Batalkan Pesanan'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFD9534F),
-                  side: const BorderSide(color: Color(0xFFD9534F)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-          ],
-
-          // Kasus 2: Diproses
-          if (order.status == OrderStatus.processing) ...[
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () => _shipOrder(order),
-                icon: const Icon(Icons.local_shipping_outlined, size: 20),
-                label: const Text(
-                  'Perbarui Pengiriman (Kirim Barang)',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3978C5),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 44,
-              child: OutlinedButton.icon(
-                onPressed: () => _confirmCancelOrder(context, order),
-                icon: const Icon(Icons.cancel_outlined, size: 18),
-                label: const Text('Batalkan Pesanan'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFD9534F),
-                  side: const BorderSide(color: Color(0xFFD9534F)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-          ],
-
-          // Kasus 3: Dikirim
-          if (order.status == OrderStatus.shipped) ...[
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () => _completeOrder(order),
-                icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
-                label: const Text(
-                  'Konfirmasi Pesanan Diterima',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-            ),
-          ],
-
-          // Kasus 4: Selesai
-          if (order.status == OrderStatus.completed) ...[
-            Builder(builder: (context) {
-              final isReviewed =
-                  ReviewController.instance.hasReviewForOrder(order.id) ||
-                      order.reviewed;
-
-              if (isReviewed) {
-                return SizedBox(
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showExistingReview(order),
-                    icon: const Icon(Icons.rate_review_outlined, size: 20),
-                    label: const Text(
-                      'Lihat Ulasan',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
+            if (order.status == OrderStatus.cancelled &&
+                order.cancellationReason != null &&
+                order.cancellationReason!.isNotEmpty) ...[
+              _panel(
+                title: 'Informasi Pembatalan',
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Alasan Pembatalan',
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _darkGreen,
-                      side: const BorderSide(color: _green, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                      const SizedBox(height: 6),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF4F2),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Text(
+                          order.cancellationReason!,
+                          style: const TextStyle(
+                            color: Color(0xFFD9534F),
+                            fontSize: 12,
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                );
-              }
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
 
-              return SizedBox(
+            _panel(
+              title: 'Riwayat Waktu',
+              children: [
+                _row('Waktu Pemesanan', _formatDateTime(order.createdAt)),
+                _row(
+                  'Waktu Pembayaran',
+                  order.paidAt == null
+                      ? 'Belum tersedia'
+                      : _formatDateTime(order.paidAt!),
+                ),
+                _row(
+                  'Waktu Pengiriman',
+                  order.shippedAt == null
+                      ? 'Belum tersedia'
+                      : _formatDateTime(order.shippedAt!),
+                ),
+                _row(
+                  'Waktu Pesanan Selesai',
+                  order.completedAt == null
+                      ? 'Belum tersedia'
+                      : _formatDateTime(order.completedAt!),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ============================================================
+            // AKSI PESANAN
+            // ============================================================
+
+            // Kasus 1: Belum Bayar
+            if (order.status == OrderStatus.awaitingPayment) ...[
+              SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
-                  onPressed: () => _openAddReview(order),
-                  icon: const Icon(Icons.star_rounded, size: 20),
+                  onPressed: _openingPayment ? null : () => _payNow(order),
+                  icon: const Icon(Icons.payment_rounded, size: 20),
                   label: const Text(
-                    'Beri Penilaian',
+                    'Bayar Sekarang',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13.5,
@@ -893,79 +960,597 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ),
                   ),
                 ),
-              );
-            }),
-          ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmCancelOrder(context, order),
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text('Batalkan Pesanan'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFD9534F),
+                    side: const BorderSide(color: Color(0xFFD9534F)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
 
-          const SizedBox(height: 20),
+            // Kasus 2: Diproses (hanya sisakan Batalkan Pesanan)
+            if (order.status == OrderStatus.processing) ...[
+              SizedBox(
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmCancelOrder(context, order),
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text(
+                    'Batalkan Pesanan',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFD9534F),
+                    side: const BorderSide(
+                      color: Color(0xFFD9534F),
+                      width: 1.2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+            if (order.status == OrderStatus.completed) ...[
+              Builder(
+                builder: (context) {
+                  final isReviewed =
+                      ReviewController.instance.hasReviewForOrder(order.id) ||
+                      order.reviewed;
+
+                  if (isReviewed) {
+                    return SizedBox(
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showExistingReview(order),
+                        icon: const Icon(Icons.rate_review_outlined, size: 20),
+                        label: const Text(
+                          'Lihat Ulasan',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _darkGreen,
+                          side: const BorderSide(color: _green, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _openAddReview(order),
+                      icon: const Icon(Icons.star_rounded, size: 20),
+                      label: const Text(
+                        'Beri Penilaian',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _green,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+            const SizedBox(height: 5),
+          ],
+        ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _orderInfoPanel({required List<Widget> children}) => Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFE5EAE1)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: .025),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    ),
+  );
+
+  static Widget _panel({String? title, required List<Widget> children}) =>
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5EAE1)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .025),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null) ...[
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            ...children,
+          ],
+        ),
+      );
+
+  Widget _shippingCard(OrderModel order) {
+    final hasTrackingNumber = order.trackingNumber.trim().isNotEmpty;
+    final courierName = '${order.courier} ${order.courierService}'.trim();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 5, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  courierName.isEmpty ? 'Layanan pengiriman' : courierName,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          hasTrackingNumber
+                              ? order.trackingNumber
+                              : 'No. Resi belum tersedia',
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.black54,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      if (hasTrackingNumber)
+                        InkWell(
+                          onTap: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: order.trackingNumber),
+                            );
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                const SnackBar(
+                                  content: Text('Nomor resi berhasil disalin'),
+                                  duration: Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 4, top: 3),
+                            child: Icon(
+                              Icons.copy_rounded,
+                              color: _darkGreen,
+                              size: 15,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (order.status != OrderStatus.cancelled) ...[
+            const Divider(height: 1, thickness: 1, color: Color(0xFFE9EDE6)),
+            const SizedBox(height: 12),
+            Text(
+              'Status Pesanan',
+              style: TextStyle(
+                color: Colors.black54,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _shipmentTimeline(order),
+          ],
         ],
       ),
     );
   }
 
-  static Widget _panel({String? title, required List<Widget> children}) =>
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE9EDE5)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (title != null) ...[
-            Text(
-              title,
-              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
+  Widget _addressSection(OrderModel order) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Alamat Tujuan Pengiriman',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.black54,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .35,
             ),
-            const SizedBox(height: 14),
-          ],
-          ...children,
-        ]),
+          ),
+          const SizedBox(height: 9),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                color: _darkGreen,
+                size: 21,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.receiver,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      order.phone,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      order.shippingAddress,
+                      style: const TextStyle(height: 1.4, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusSection(OrderModel order) {
+    final icon = switch (order.status) {
+      OrderStatus.completed => Icons.check_rounded,
+      OrderStatus.shipped => Icons.local_shipping_outlined,
+      OrderStatus.processing => Icons.inventory_2_outlined,
+      OrderStatus.awaitingPayment => Icons.payment_outlined,
+      OrderStatus.cancelled => Icons.close_rounded,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors:
+                  order.status == OrderStatus.cancelled
+                      ? const [Color(0xFFC62828), Color(0xFFEF5350)]
+                      : const [Color(0xFF5E963F), Color(0xFF9BCB69)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color:
+                      order.status == OrderStatus.cancelled
+                          ? const Color(0xFFD32F2F)
+                          : _darkGreen,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pesanan ${order.status.label}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (order.status == OrderStatus.awaitingPayment) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Selesaikan pembayaran dalam: ${_formatCountdown(order)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 1),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Nomor Pesanan',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '#${order.id}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: '#${order.id}'),
+                      );
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          const SnackBar(
+                            content: Text('Nomor pesanan berhasil disalin'),
+                            duration: Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4, top: 3, bottom: 3),
+                      child: Icon(
+                        Icons.copy_rounded,
+                        color: _darkGreen,
+                        size: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _shipmentTimeline(OrderModel order) {
+    const stages = [
+      (OrderStatus.processing, 'Pesanan\ndiproses'),
+      (OrderStatus.shipped, 'Dalam\npengiriman'),
+      (OrderStatus.completed, 'Tiba di\ntujuan'),
+      (OrderStatus.completed, 'Pesanan\nselesai'),
+    ];
+    final activeIndex = switch (order.status) {
+      OrderStatus.awaitingPayment => -1,
+      OrderStatus.processing => 0,
+      OrderStatus.shipped => 1,
+      OrderStatus.completed => 3,
+      OrderStatus.cancelled => -1,
+    };
+
+    if (order.status == OrderStatus.cancelled) {
+      return Row(
+        children: [
+          const Icon(Icons.cancel_outlined, color: Colors.redAccent, size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'Pesanan dibatalkan',
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
       );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < stages.length; index++) ...[
+          Expanded(
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color:
+                            index == 0
+                                ? Colors.transparent
+                                : (index <= activeIndex
+                                    ? _green
+                                    : Colors.black12),
+                      ),
+                    ),
+                    Container(
+                      width: 21,
+                      height: 21,
+                      decoration: BoxDecoration(
+                        color: index <= activeIndex ? _darkGreen : Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color:
+                              index <= activeIndex
+                                  ? _darkGreen
+                                  : Colors.black26,
+                        ),
+                      ),
+                      child:
+                          index <= activeIndex
+                              ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 14,
+                              )
+                              : null,
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        color:
+                            index == stages.length - 1
+                                ? Colors.transparent
+                                : (index < activeIndex
+                                    ? _green
+                                    : Colors.black12),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  stages[index].$2,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _darkGreen,
+                    fontSize: 10,
+                    height: 1.15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _openInvoice(OrderModel order) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => OrderInvoiceScreen(order: order)),
+    );
+  }
 
   static Widget _row(
     String label,
     String value, {
     bool bold = false,
     Color? valueColor,
-  }) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 9),
-        child: Row(children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
-                color: valueColor ?? (bold ? _darkGreen : Colors.black87),
-                fontSize: bold ? 15 : 12,
-              ),
-            ),
-          ),
-        ]),
-      );
-
-  static Widget _statusPill(OrderStatus status) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: status.color.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          status.label,
-          style: TextStyle(
-            color: status.color,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 9),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
           ),
         ),
-      );
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 150,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
+              color: valueColor ?? (bold ? _darkGreen : Colors.black87),
+              fontSize: bold ? 15 : 12,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }

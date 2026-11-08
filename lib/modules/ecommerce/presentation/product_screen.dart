@@ -1,13 +1,145 @@
 import 'package:flutter/material.dart';
+import 'package:petanitech_mobile/utils/client/api_client.dart';
 import '../logic/controllers/order_controller.dart';
 import '../logic/controllers/review_controller.dart';
 import '../logic/models/review_model.dart';
+import '../logic/services/shipping_estimate_service.dart';
 import 'checkout_screen.dart';
-import 'shipping_screen.dart';
 import 'shopping_cart_screen.dart';
 import 'chat_screen.dart';
 import 'store_screen.dart';
 import 'product_reviews_screen.dart';
+
+class _ShippingInfoSheet extends StatelessWidget {
+  const _ShippingInfoSheet({required this.origin, required this.destination});
+
+  final String origin;
+  final String destination;
+
+  String _rupiah(int value) =>
+      'Rp ${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+  @override
+  Widget build(BuildContext context) {
+    const service = ShippingEstimateService();
+    final estimates = service.estimate(
+      ShippingEstimateRequest(origin: origin, destination: destination),
+    );
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Center(
+              child: Text(
+                'Informasi Ongkir',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+            ),
+            const Divider(height: 24),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Icon(Icons.verified_outlined, color: Color(0xFF2A9D8F)),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Estimasi pengiriman',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Text(
+                'Biaya di bawah adalah perkiraan dan bukan hasil perhitungan jarak aktual.',
+                textAlign: TextAlign.justify,
+                style: TextStyle(color: Colors.black54, fontSize: 11),
+              ),
+            ),
+            Container(
+              color: const Color(0xFFF7F8F6),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    color: Color(0xFF5E963F),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Kirim ke',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  Flexible(
+                    child: Text(
+                      destination,
+                      textAlign: TextAlign.right,
+                      softWrap: true,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...estimates.map(
+              (estimate) => Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      color: Color(0xFF2A9D8F),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            estimate.deliveryWindow,
+                            style: const TextStyle(color: Color(0xFF2A9D8F), fontSize: 14,fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            estimate.serviceName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${_rupiah(estimate.minimumCost)} - ${_rupiah(estimate.maximumCost)}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class ProductScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -30,7 +162,8 @@ class _ProductScreenState extends State<ProductScreen> {
 
   List<IconData> get _productIcons {
     if (widget.product['icons'] is List) {
-      final list = (widget.product['icons'] as List).whereType<IconData>().toList();
+      final list =
+          (widget.product['icons'] as List).whereType<IconData>().toList();
       if (list.isNotEmpty) return list;
     }
     if (widget.product['icon'] is IconData) {
@@ -152,35 +285,39 @@ class _ProductScreenState extends State<ProductScreen> {
               ),
 
               // Swipeable Image Carousel
-              SizedBox(
-                height: 220,
-                child: PageView.builder(
-                  controller: _imagePageController,
-                  itemCount: icons.length,
-                  onPageChanged: (index) {
-                    setState(() => _currentImageIndex = index);
-                  },
-                  itemBuilder: (context, index) {
-                    final icon = icons[index];
-                    return Center(
-                      child: Container(
-                        width: 190,
-                        height: 190,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: darkGreen.withOpacity(.12),
-                              blurRadius: 28,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        child: Icon(icon, size: 100, color: darkGreen),
-                      ),
-                    );
-                  },
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: PageView.builder(
+                    controller: _imagePageController,
+                    itemCount: icons.length,
+                    onPageChanged: (index) {
+                      setState(() => _currentImageIndex = index);
+                    },
+                    itemBuilder: (context, index) {
+                      final icon = icons[index];
+                      final img = widget.product['image']?.toString();
+                      return Container(
+                        decoration: const BoxDecoration(color: Colors.white),
+                        clipBehavior: Clip.antiAlias,
+                        child:
+                            (img != null && img.isNotEmpty)
+                                ? Image.network(
+                                  ApiClient.getAsset(img),
+                                  fit: BoxFit.contain,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  errorBuilder:
+                                      (_, __, ___) => Icon(
+                                        icon,
+                                        size: 100,
+                                        color: darkGreen,
+                                      ),
+                                )
+                                : Icon(icon, size: 100, color: darkGreen),
+                      );
+                    },
+                  ),
                 ),
               ),
 
@@ -338,63 +475,71 @@ class _ProductScreenState extends State<ProductScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _variants.map((v) {
-                  final vName = v['name']?.toString() ?? '';
-                  final isSelected = _selectedVariant == vName;
-                  final vPrice = (v['price'] as num?)?.toInt();
+                children:
+                    _variants.map((v) {
+                      final vName = v['name']?.toString() ?? '';
+                      final isSelected = _selectedVariant == vName;
+                      final vPrice = (v['price'] as num?)?.toInt();
 
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedVariant = vName;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected ? lightGreen : Colors.white,
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedVariant = vName;
+                          });
+                        },
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? darkGreen : const Color(0xFFDCDFD8),
-                          width: isSelected ? 1.6 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            vName,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight:
-                                  isSelected ? FontWeight.w800 : FontWeight.w600,
-                              color: isSelected ? darkGreen : Colors.black87,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected ? lightGreen : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color:
+                                  isSelected
+                                      ? darkGreen
+                                      : const Color(0xFFDCDFD8),
+                              width: isSelected ? 1.6 : 1,
                             ),
                           ),
-                          if (vPrice != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              'Rp ${_formatPrice(vPrice)}',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: isSelected
-                                    ? darkGreen
-                                    : Colors.grey.shade600,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                vName,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                  color:
+                                      isSelected ? darkGreen : Colors.black87,
+                                ),
                               ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+                              if (vPrice != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Rp ${_formatPrice(vPrice)}',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color:
+                                        isSelected
+                                            ? darkGreen
+                                            : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
               ),
             ],
           ],
@@ -402,7 +547,6 @@ class _ProductScreenState extends State<ProductScreen> {
       ),
     );
   }
-
 
   Widget _shippingSection() {
     return GestureDetector(
@@ -492,21 +636,21 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 
   Future<void> _openShipping() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(builder: (_) => const ShippingScreen()),
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder:
+          (_) => _ShippingInfoSheet(
+            origin:
+                widget.product['location']?.toString() ??
+                'Indramayu, Jawa Barat',
+            destination: 'Kab. Indramayu',
+          ),
     );
-
-    if (!mounted || result == null) {
-      return;
-    }
-
-    setState(() {
-      selectedShipping =
-          '${result['name']} '
-          '${result['service']} • '
-          'Rp ${_formatPrice(result['price'] as int)}';
-    });
   }
 
   Widget _descriptionSection(String name, String category) {
@@ -519,13 +663,10 @@ class _ProductScreenState extends State<ProductScreen> {
           const SizedBox(height: 12),
 
           Text(
-            '$name merupakan produk '
-            'kategori $category yang cocok '
-            'digunakan untuk mendukung '
-            'kebutuhan pertanian. Informasi '
-            'produk, ukuran, dan ketersediaan '
-            'dapat disesuaikan dengan data '
-            'dari toko.',
+            (widget.product['description'] != null &&
+                    widget.product['description'].toString().trim().isNotEmpty)
+                ? widget.product['description'].toString().trim()
+                : '$name merupakan produk kategori $category yang cocok digunakan untuk mendukung kebutuhan pertanian.',
             style: TextStyle(
               color: Colors.grey.shade700,
               fontSize: 13,
@@ -538,6 +679,12 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 
   Widget _storeSection() {
+    final storeName =
+        widget.product['shopName']?.toString() ??
+        widget.product['store_name']?.toString() ??
+        'Toko Tani Makmur Fahda';
+    final storeLoc = widget.product['location']?.toString() ?? 'Indonesia';
+
     return _sectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,23 +716,26 @@ class _ProductScreenState extends State<ProductScreen> {
 
               const SizedBox(width: 12),
 
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Toko Tani Sejahtera',
-                      style: TextStyle(
+                      storeName,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
 
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
 
                     Text(
-                      'Toko produk pertanian',
-                      style: TextStyle(color: Colors.grey, fontSize: 11.5),
+                      '$storeLoc',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 11.5,
+                      ),
                     ),
                   ],
                 ),
@@ -674,12 +824,15 @@ class _ProductScreenState extends State<ProductScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ProductReviewsScreen(
-                      productName: productName,
-                      productCategory: category,
-                      variants:
-                          _variants.map((v) => v['name'].toString()).toList(),
-                    ),
+                    builder:
+                        (_) => ProductReviewsScreen(
+                          productName: productName,
+                          productCategory: category,
+                          variants:
+                              _variants
+                                  .map((v) => v['name'].toString())
+                                  .toList(),
+                        ),
                   ),
                 );
               },
@@ -739,8 +892,10 @@ class _ProductScreenState extends State<ProductScreen> {
               if (review.variant != null && review.variant!.isNotEmpty) ...[
                 const SizedBox(height: 3),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F3EE),
                     borderRadius: BorderRadius.circular(6),
@@ -1081,7 +1236,31 @@ class _ProductScreenState extends State<ProductScreen> {
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: const Color(0xFFE2EAD8)),
                           ),
-                          child: Icon(productIcon, color: darkGreen, size: 36),
+                          clipBehavior: Clip.antiAlias,
+                          child:
+                              (widget.product['image'] != null &&
+                                      widget.product['image']
+                                          .toString()
+                                          .isNotEmpty)
+                                  ? Image.network(
+                                    ApiClient.getAsset(
+                                      widget.product['image'].toString(),
+                                    ),
+                                    fit: BoxFit.cover,
+                                    width: 72,
+                                    height: 72,
+                                    errorBuilder:
+                                        (_, __, ___) => Icon(
+                                          productIcon,
+                                          color: darkGreen,
+                                          size: 36,
+                                        ),
+                                  )
+                                  : Icon(
+                                    productIcon,
+                                    color: darkGreen,
+                                    size: 36,
+                                  ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -1160,53 +1339,58 @@ class _ProductScreenState extends State<ProductScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _variants.map((v) {
-                          final vName = v['name']?.toString() ?? '';
-                          final isSelected = localVariant == vName;
-                          final vPrice = (v['price'] as num?)?.toInt();
+                        children:
+                            _variants.map((v) {
+                              final vName = v['name']?.toString() ?? '';
+                              final isSelected = localVariant == vName;
+                              final vPrice = (v['price'] as num?)?.toInt();
 
-                          return InkWell(
-                            onTap: () {
-                              setModalState(() {
-                                localVariant = vName;
-                              });
-                              setState(() {
-                                _selectedVariant = vName;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected ? lightGreen : Colors.white,
+                              return InkWell(
+                                onTap: () {
+                                  setModalState(() {
+                                    localVariant = vName;
+                                  });
+                                  setState(() {
+                                    _selectedVariant = vName;
+                                  });
+                                },
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? darkGreen
-                                      : Colors.grey.shade300,
-                                  width: isSelected ? 1.5 : 1,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isSelected ? lightGreen : Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color:
+                                          isSelected
+                                              ? darkGreen
+                                              : Colors.grey.shade300,
+                                      width: isSelected ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    vPrice != null
+                                        ? '$vName (Rp ${_formatPrice(vPrice)})'
+                                        : vName,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight:
+                                          isSelected
+                                              ? FontWeight.w800
+                                              : FontWeight.w600,
+                                      color:
+                                          isSelected
+                                              ? darkGreen
+                                              : Colors.black87,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                vPrice != null
-                                    ? '$vName (Rp ${_formatPrice(vPrice)})'
-                                    : vName,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                  color: isSelected
-                                      ? darkGreen
-                                      : Colors.black87,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                              );
+                            }).toList(),
                       ),
                     ],
 
@@ -1367,51 +1551,53 @@ class _ProductScreenState extends State<ProductScreen> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: needSelectVariant
-                            ? () {
-                                _showNotification(
-                                  'Silakan pilih varian produk terlebih dahulu.',
-                                  isError: true,
-                                );
-                              }
-                            : () {
-                                Navigator.pop(bottomSheetContext);
-
-                                final productData =
-                                    Map<String, dynamic>.from(widget.product);
-                                productData['price'] = unitPrice;
-                                if (localVariant != null) {
-                                  productData['variant'] = localVariant;
-                                }
-
-                                if (isBuyNow) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => CheckoutScreen(
-                                            product: productData,
-                                            quantity: quantity,
-                                            initialShipping:
-                                                selectedShipping !=
-                                                        'Pilih pengiriman'
-                                                    ? selectedShipping
-                                                    : null,
-                                          ),
-                                    ),
-                                  );
-                                } else {
-                                  productData['quantity'] = quantity;
-                                  ShoppingCartScreen.addToCart(productData);
-                                  final vLabel =
-                                      localVariant != null
-                                          ? ' ($localVariant)'
-                                          : '';
+                        onPressed:
+                            needSelectVariant
+                                ? () {
                                   _showNotification(
-                                    '$quantity pcs $productName$vLabel berhasil dimasukkan ke keranjang',
+                                    'Silakan pilih varian produk terlebih dahulu.',
+                                    isError: true,
                                   );
                                 }
-                              },
+                                : () {
+                                  Navigator.pop(bottomSheetContext);
+
+                                  final productData = Map<String, dynamic>.from(
+                                    widget.product,
+                                  );
+                                  productData['price'] = unitPrice;
+                                  if (localVariant != null) {
+                                    productData['variant'] = localVariant;
+                                  }
+
+                                  if (isBuyNow) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => CheckoutScreen(
+                                              product: productData,
+                                              quantity: quantity,
+                                              initialShipping:
+                                                  selectedShipping !=
+                                                          'Pilih pengiriman'
+                                                      ? selectedShipping
+                                                      : null,
+                                            ),
+                                      ),
+                                    );
+                                  } else {
+                                    productData['quantity'] = quantity;
+                                    ShoppingCartScreen.addToCart(productData);
+                                    final vLabel =
+                                        localVariant != null
+                                            ? ' ($localVariant)'
+                                            : '';
+                                    _showNotification(
+                                      '$quantity pcs $productName$vLabel berhasil dimasukkan ke keranjang',
+                                    );
+                                  }
+                                },
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               needSelectVariant
@@ -1546,9 +1732,7 @@ class _ProductScreenState extends State<ProductScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const ChatScreen(
-          storeName: 'Toko Tani Sejahtera',
-        ),
+        builder: (_) => const ChatScreen(storeName: 'Toko Tani Sejahtera'),
       ),
     );
   }
@@ -1557,9 +1741,7 @@ class _ProductScreenState extends State<ProductScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const StoreScreen(
-          storeName: 'Toko Tani Sejahtera',
-        ),
+        builder: (_) => const StoreScreen(storeName: 'Toko Tani Sejahtera'),
       ),
     );
   }

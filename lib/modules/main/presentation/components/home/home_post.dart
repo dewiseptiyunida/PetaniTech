@@ -124,7 +124,9 @@ Widget _itemList(BuildContext context, int index, int total, PostModel post) {
               height: 200,
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: NetworkImage(ApiClient.getAsset(post.image!.id)),
+                  image: NetworkImage(
+                    ApiClient.getAsset(post.image?.id ?? ''),
+                  ),
                   fit: BoxFit.cover,
                 ),
               ),
@@ -156,7 +158,7 @@ Widget _itemList(BuildContext context, int index, int total, PostModel post) {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             Text(
-                              post.title!,
+                              post.title ?? 'Artikel',
                               maxLines: 2,
                               style: TextStyle(
                                 color: Colors.white,

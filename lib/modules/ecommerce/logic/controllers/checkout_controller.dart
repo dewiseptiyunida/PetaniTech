@@ -83,7 +83,11 @@ class CheckoutController extends ChangeNotifier {
   ];
 
   String _note = '';
-  late final DateTime orderCreatedAt;
+  DateTime orderCreatedAt = DateTime.now();
+
+  void refreshOrderCreationTime() {
+    orderCreatedAt = DateTime.now();
+  }
 
   CheckoutController({
     Map<String, dynamic>? product,

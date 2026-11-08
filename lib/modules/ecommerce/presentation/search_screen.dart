@@ -1,5 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:petanitech_mobile/core/config.dart';
+import 'package:petanitech_mobile/utils/client/api_client.dart';
 import '../logic/controllers/order_controller.dart';
 import '../logic/controllers/review_controller.dart';
 import 'product_screen.dart';
@@ -22,51 +25,15 @@ class _SearchScreenState extends State<SearchScreen> {
   final ImagePicker imagePicker = ImagePicker();
   String searchQuery = '';
   XFile? _selectedSearchImage;
-
-  final List<Map<String, dynamic>> products = [
-    {
-      'name': 'Pupuk NPK Mutiara',
-      'category': 'Pupuk',
-      'price': 75000,
-      'icon': Icons.grass_rounded,
-    },
-    {
-      'name': 'Benih Padi Unggul',
-      'category': 'Benih',
-      'price': 45000,
-      'icon': Icons.spa_rounded,
-    },
-    {
-      'name': 'Pestisida Tanaman',
-      'category': 'Pestisida',
-      'price': 65000,
-      'icon': Icons.science_outlined,
-    },
-    {
-      'name': 'Cangkul Besi',
-      'category': 'Alat Pertanian',
-      'price': 85000,
-      'icon': Icons.agriculture_rounded,
-    },
-    {
-      'name': 'Media Tanam Organik',
-      'category': 'Media Tanam',
-      'price': 35000,
-      'icon': Icons.yard_rounded,
-    },
-    {
-      'name': 'Pupuk Organik',
-      'category': 'Pupuk',
-      'price': 55000,
-      'icon': Icons.grass_rounded,
-    },
-  ];
+  bool _isLoading = false;
+  List<Map<String, dynamic>> _searchResults = [];
 
   @override
   void initState() {
     super.initState();
-    searchQuery = widget.searchQuery.toLowerCase().trim();
+    searchQuery = widget.searchQuery.trim();
     searchController = TextEditingController(text: widget.searchQuery);
+    _fetchSearchResults(widget.searchQuery);
   }
 
   @override
@@ -75,10 +42,116 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
+  Future<void> _fetchSearchResults(String query) async {
+    final q = query.trim();
+    if (mounted) setState(() => _isLoading = true);
+    try {
+      final dio = Dio();
+      final url =
+          q.isEmpty
+              ? '$appUrl/products'
+              : '$appUrl/products?search=${Uri.encodeComponent(q)}';
+      final response = await dio.get(
+        url,
+        options: Options(
+          receiveTimeout: const Duration(seconds: 8),
+          sendTimeout: const Duration(seconds: 8),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final rawData = response.data;
+        final List dynamicList =
+            rawData is Map && rawData['data'] is List
+                ? rawData['data']
+                : (rawData is List ? rawData : []);
+
+        final List<Map<String, dynamic>> list = [];
+        for (var item in dynamicList) {
+          final cat = item['category']?.toString() ?? 'Lainnya';
+          final icon = _getCategoryIcon(cat);
+          list.add({
+            'id': item['id']?.toString(),
+            'name': item['name']?.toString() ?? 'Produk',
+            'category': cat,
+            'price':
+                (item['price'] is num) ? (item['price'] as num).toInt() : 50000,
+            'icon': icon,
+            'icons': [icon],
+            'image': item['image']?.toString(),
+            'images':
+                item['images'] ?? item['product_images'] ?? item['image_urls'],
+            'shopPhoto':
+                item['store_photo'] ??
+                item['shop_photo'] ??
+                item['seller_photo'],
+            'description': item['description']?.toString(),
+            'stock': item['stock'] ?? 10,
+            'soldCount': item['sold_count'] ?? 0,
+            'rating':
+                (item['rating'] is num)
+                    ? (item['rating'] as num).toDouble()
+                    : 5.0,
+            'shopName':
+                item['store_name']?.toString() ??
+                item['seller_name']?.toString() ??
+                'Toko Tani Makmur',
+            'location': item['location']?.toString() ?? 'Indonesia',
+            'variants':
+                (item['unit'] != null && item['unit'].toString().isNotEmpty)
+                    ? [
+                      {
+                        'name': item['unit'].toString(),
+                        'price':
+                            (item['price'] is num)
+                                ? (item['price'] as num).toInt()
+                                : 50000,
+                      },
+                    ]
+                    : [],
+          });
+        }
+        if (mounted) {
+          setState(() {
+            _searchResults = list;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('[SearchScreen] Error searching products: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  IconData _getCategoryIcon(String? category) {
+    switch (category?.toLowerCase()) {
+      case 'pupuk':
+        return Icons.grass_rounded;
+      case 'benih':
+      case 'bibit':
+        return Icons.spa_rounded;
+      case 'pestisida':
+        return Icons.science_outlined;
+      case 'alat pertanian':
+      case 'alat':
+        return Icons.agriculture_rounded;
+      case 'media tanam':
+        return Icons.yard_rounded;
+      case 'irigasi':
+        return Icons.water_drop_outlined;
+      default:
+        return Icons.eco_rounded;
+    }
+  }
+
   void _searchProduct(String value) {
     setState(() {
-      searchQuery = value.toLowerCase().trim();
+      searchQuery = value.trim();
     });
+    _fetchSearchResults(value);
   }
 
   Future<void> _pickSearchImage(ImageSource source) async {
@@ -131,60 +204,56 @@ class _SearchScreenState extends State<SearchScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+      builder:
+          (sheetContext) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Cari dengan Gambar',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.camera_alt_rounded, color: darkGreen),
+                    title: const Text('Ambil foto dari kamera'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _pickSearchImage(ImageSource.camera);
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      Icons.photo_library_rounded,
+                      color: darkGreen,
+                    ),
+                    title: const Text('Pilih gambar dari galeri'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _pickSearchImage(ImageSource.gallery);
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Cari dengan Gambar',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              ),
-              ListTile(
-                leading: Icon(Icons.camera_alt_rounded, color: darkGreen),
-                title: const Text('Ambil foto dari kamera'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _pickSearchImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.photo_library_rounded, color: darkGreen),
-                title: const Text('Pilih gambar dari galeri'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _pickSearchImage(ImageSource.gallery);
-                },
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
-    final filteredProducts =
-        products.where((product) {
-          if (searchQuery.isEmpty) return true;
-
-          final productName = product['name'].toString().toLowerCase();
-          final productCategory = product['category'].toString().toLowerCase();
-
-          return productName.contains(searchQuery) ||
-              productCategory.contains(searchQuery);
-        }).toList();
+    final filteredProducts = _searchResults;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9F5),
@@ -302,86 +371,103 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                     IconButton(
                       tooltip: 'Hapus gambar',
-                      onPressed: () => setState(() => _selectedSearchImage = null),
+                      onPressed:
+                          () => setState(() => _selectedSearchImage = null),
                       icon: const Icon(Icons.close_rounded, size: 18),
                       visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
               ),
-            Expanded(
-              child:
-                  filteredProducts.isEmpty
-                      ? _emptyResult()
-                      : CustomScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(18,22,18,13),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Hasil Pencarian',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 7,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: lightGreen,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      '${filteredProducts.length} produk',
-                                      style: TextStyle(
-                                        color: darkGreen,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
-                            sliver: SliverGrid(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) =>
-                                    _productCard(filteredProducts[index]),
-                                childCount: filteredProducts.length,
-                              ),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 12,
-                                    childAspectRatio: 0.66,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
-            ),
+            Expanded(child: _buildSearchResults(filteredProducts)),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSearchResults(List<Map<String, dynamic>> filteredProducts) {
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: darkGreen),
+            const SizedBox(height: 12),
+            Text(
+              'Mencari produk...',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (filteredProducts.isEmpty) {
+      return _emptyResult();
+    }
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 22, 18, 13),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Hasil Pencarian',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: lightGreen,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${filteredProducts.length} produk',
+                    style: TextStyle(
+                      color: darkGreen,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _productCard(filteredProducts[index]),
+              childCount: filteredProducts.length,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.66,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -461,7 +547,26 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                     child: Center(
-                      child: Icon(product['icon'], size: 70, color: darkGreen),
+                      child:
+                          (product['image'] != null &&
+                                  product['image'].toString().isNotEmpty)
+                              ? Image.network(
+                                ApiClient.getAsset(product['image'].toString()),
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                                errorBuilder:
+                                    (_, __, ___) => Icon(
+                                      product['icon'] ?? Icons.eco_rounded,
+                                      size: 70,
+                                      color: darkGreen,
+                                    ),
+                              )
+                              : Icon(
+                                product['icon'] ?? Icons.eco_rounded,
+                                size: 70,
+                                color: darkGreen,
+                              ),
                     ),
                   ),
                   Positioned(
@@ -483,23 +588,6 @@ class _SearchScreenState extends State<SearchScreen> {
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
                         ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: Container(
-                      width: 31,
-                      height: 31,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.94),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.favorite_border_rounded,
-                        color: Colors.grey.shade600,
-                        size: 17,
                       ),
                     ),
                   ),
@@ -540,7 +628,9 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                       const SizedBox(width: 3),
                       Text(
-                        dynamicRating > 0 ? dynamicRating.toStringAsFixed(1) : '-',
+                        dynamicRating > 0
+                            ? dynamicRating.toStringAsFixed(1)
+                            : '-',
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 11,
@@ -550,7 +640,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       const SizedBox(width: 6),
                       Text(
                         '• $dynamicSold terjual',
-                        style: const TextStyle(color: Colors.grey, fontSize: 10),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 10,
+                        ),
                       ),
                       const Spacer(),
                       Icon(

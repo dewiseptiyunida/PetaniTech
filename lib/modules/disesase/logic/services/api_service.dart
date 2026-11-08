@@ -14,7 +14,7 @@ import '../models/chat_model.dart';
 import '../models/history_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://predict-disease.petanitech.com';
+  static const String baseUrl = 'http://192.168.18.9:8080/api/v1';
   static const Duration timeoutDuration = Duration(seconds: 60);
 
   // Toggle untuk verbose log

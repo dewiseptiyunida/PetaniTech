@@ -16,14 +16,6 @@ class _ShippingScreenState extends State<ShippingScreen> {
 
   final List<Map<String, dynamic>> shippingOptions = [
     {
-      'name': 'JNE',
-      'service': 'REG',
-      'description': 'Reguler',
-      'price': 10000,
-      'estimate': '2–3 hari',
-      'icon': Icons.local_shipping_outlined,
-    },
-    {
       'name': 'J&T',
       'service': 'EZ',
       'description': 'Reguler',
@@ -32,12 +24,28 @@ class _ShippingScreenState extends State<ShippingScreen> {
       'icon': Icons.inventory_2_outlined,
     },
     {
+      'name': 'JNE',
+      'service': 'REG',
+      'description': 'Reguler',
+      'price': 10000,
+      'estimate': '2–4 hari',
+      'icon': Icons.local_shipping_outlined,
+    },
+    {
       'name': 'SiCepat',
       'service': 'REG',
       'description': 'Reguler',
       'price': 11000,
-      'estimate': '2–4 hari',
-      'icon': Icons.local_shipping_rounded,
+      'estimate': '2–3 hari',
+      'icon': Icons.bolt_rounded,
+    },
+    {
+      'name': 'Anteraja',
+      'service': 'REG',
+      'description': 'Reguler',
+      'price': 9500,
+      'estimate': '3–4 hari',
+      'icon': Icons.delivery_dining_rounded,
     },
   ];
 
@@ -52,6 +60,7 @@ class _ShippingScreenState extends State<ShippingScreen> {
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
+          tooltip: 'Kembali',
         ),
         title: const Text(
           'Pilih Pengiriman',
@@ -61,7 +70,7 @@ class _ShippingScreenState extends State<ShippingScreen> {
       ),
       bottomNavigationBar: _confirmButton(),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         children: [
           _addressCard(),
           const SizedBox(height: 14),
@@ -135,119 +144,83 @@ class _ShippingScreenState extends State<ShippingScreen> {
     final bool selected = selectedIndex == index;
     final int price = option['price'] as int;
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedIndex = index;
-        });
-      },
+    return InkWell(
+      onTap: () => setState(() => selectedIndex = index),
+      borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(15),
+        margin: const EdgeInsets.only(bottom: 9),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(17),
+          color: selected ? lightGreen.withValues(alpha: 0.4) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? primaryGreen : const Color(0xFFE6EAE3),
-            width: selected ? 1.5 : 1,
+            color: selected ? primaryGreen : const Color(0xFFEDEFEB),
+            width: selected ? 1.4 : 1,
           ),
-          boxShadow: [
-            if (selected)
-              BoxShadow(
-                color: primaryGreen.withOpacity(.10),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-          ],
         ),
         child: Row(
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: selected ? lightGreen : const Color(0xFFF5F6F4),
-                borderRadius: BorderRadius.circular(13),
+                color: lightGreen,
+                borderRadius: BorderRadius.circular(12),
               ),
+              alignment: Alignment.center,
               child: Icon(
                 option['icon'] as IconData,
-                color: selected ? darkGreen : Colors.grey.shade600,
-                size: 23,
+                color: darkGreen,
+                size: 24,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        option['name'] as String,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: lightGreen,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          option['service'] as String,
-                          style: TextStyle(
-                            color: darkGreen,
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
                   Text(
-                    '${option['description']} • ${option['estimate']}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Rp ${_formatPrice(price)}',
-                    style: TextStyle(
-                      color: darkGreen,
-                      fontSize: 12,
+                    '${option['name']} ${option['description']}'
+                    '${option['service'] == null ? '' : ' (${option['service']})'}',
+                    style: const TextStyle(
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Estimasi ${option['estimate']}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected ? primaryGreen : Colors.grey.shade400,
-                  width: 1.5,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Rp ${_formatPrice(price)}',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: darkGreen,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                color: selected ? primaryGreen : Colors.transparent,
-              ),
-              child:
-                  selected
-                      ? const Icon(
-                        Icons.check_rounded,
-                        color: Colors.white,
-                        size: 15,
-                      )
-                      : null,
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Icon(
+                    selected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: selected ? primaryGreen : Colors.grey.shade400,
+                    size: 21,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -265,7 +238,7 @@ class _ShippingScreenState extends State<ShippingScreen> {
           border: const Border(top: BorderSide(color: Color(0xFFE9ECE7))),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(.07),
+              color: Colors.black.withValues(alpha: .07),
               blurRadius: 16,
               offset: const Offset(0, -5),
             ),
@@ -287,7 +260,7 @@ class _ShippingScreenState extends State<ShippingScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: const Text(
+            child: const Text( 
               'Konfirmasi Pengiriman',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),

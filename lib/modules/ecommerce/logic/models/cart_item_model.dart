@@ -7,6 +7,7 @@ class CartItemModel {
   final IconData icon;
   final String shopName;
   final String? variant;
+  final String? image;
 
   int quantity;
   bool isSelected;
@@ -18,6 +19,7 @@ class CartItemModel {
     required this.icon,
     this.shopName = 'Tani Makmur Official Store',
     this.variant,
+    this.image,
     this.quantity = 1,
     this.isSelected = false,
   });
@@ -39,6 +41,7 @@ class CartItemModel {
               : Icons.shopping_bag_outlined),
       shopName: product['shopName']?.toString() ?? 'Tani Makmur Official Store',
       variant: product['variant']?.toString(),
+      image: product['image']?.toString(),
       quantity: (product['quantity'] as num?)?.toInt() ?? 1,
       isSelected: product['isSelected'] == true,
     );
@@ -53,6 +56,7 @@ class CartItemModel {
       'iconCodePoint': icon.codePoint,
       'shopName': shopName,
       'variant': variant,
+      'image': image,
       'quantity': quantity,
       'isSelected': isSelected,
     };
@@ -66,6 +70,7 @@ class CartItemModel {
       'iconCodePoint': icon.codePoint,
       'shopName': shopName,
       'variant': variant,
+      'image': image,
       'quantity': quantity,
       'isSelected': isSelected,
     };
@@ -86,6 +91,7 @@ class CartItemModel {
               : Icons.shopping_bag_outlined),
       shopName: json['shopName']?.toString() ?? 'Tani Makmur Official Store',
       variant: json['variant']?.toString(),
+      image: json['image']?.toString(),
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       isSelected: json['isSelected'] == true,
     );
@@ -99,6 +105,7 @@ class CartItemModel {
       icon: icon,
       shopName: shopName,
       variant: variant,
+      image: image,
       quantity: quantity,
       isSelected: isSelected,
     );

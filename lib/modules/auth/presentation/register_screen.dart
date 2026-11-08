@@ -105,7 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _hideLoader(context);
             if (state is RegisterSuccess) {
               Modular.to.pushReplacementNamed(
-                AppModule.mainRoute + MainModule.homeRoute,
+                AppModule.authRoute + AuthModule.loginRoute,
               );
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

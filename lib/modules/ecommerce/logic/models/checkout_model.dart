@@ -103,6 +103,7 @@ class CheckoutItemModel {
   final int quantity;
   final String shopName;
   final String? variant;
+  final String? image;
 
   const CheckoutItemModel({
     required this.name,
@@ -112,6 +113,7 @@ class CheckoutItemModel {
     this.quantity = 1,
     this.shopName = 'Tani Makmur Official Store',
     this.variant,
+    this.image,
   });
 
   int get subtotal => price * quantity;
@@ -137,6 +139,7 @@ class CheckoutItemModel {
           1,
       shopName: map['shopName']?.toString() ?? 'Tani Makmur Official Store',
       variant: map['variant']?.toString(),
+      image: map['image']?.toString(),
     );
   }
 
@@ -149,6 +152,7 @@ class CheckoutItemModel {
       'quantity': quantity,
       'shopName': shopName,
       'variant': variant,
+      'image': image,
     };
   }
 }

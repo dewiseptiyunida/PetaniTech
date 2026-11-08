@@ -9,6 +9,7 @@ class ShoppingCartController extends ChangeNotifier {
   final CartStorageService _storageService = CartStorageService();
   final List<CartItemModel> _items = [];
   bool _isLoaded = false;
+  Future<void>? _loadFuture;
 
   ShoppingCartController._() {
     loadFromStorage();
@@ -49,12 +50,30 @@ class ShoppingCartController extends ChangeNotifier {
   }
 
   /// Memuat data keranjang dari local persistence (SharedPreferences).
-  Future<void> loadFromStorage() async {
-    final loadedItems = await _storageService.loadCart();
-    _items.clear();
-    _items.addAll(loadedItems);
-    _isLoaded = true;
-    notifyListeners();
+  Future<void> loadFromStorage() {
+    // Hindari dua proses load bersamaan ketika singleton dibuat dan screen dibuka.
+    if (_isLoaded) return Future<void>.value();
+    if (_loadFuture != null) return _loadFuture!;
+
+    _loadFuture = _loadCartSafely();
+    return _loadFuture!;
+  }
+
+  Future<void> _loadCartSafely() async {
+    try {
+      final loadedItems = await _storageService.loadCart();
+      _items
+        ..clear()
+        ..addAll(loadedItems);
+    } catch (error, stackTrace) {
+      debugPrint('[ShoppingCartController] Gagal memuat keranjang: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      // Pastikan UI keluar dari state loading walaupun penyimpanan gagal dibaca.
+      _isLoaded = true;
+      _loadFuture = null;
+      notifyListeners();
+    }
   }
 
   /// Menyimpan status saat ini ke penyimpanan lokal.
@@ -149,9 +168,7 @@ class ShoppingCartController extends ChangeNotifier {
 
   // Menghapus produk berdasarkan daftar nama produk.
   Future<void> removeCheckedOutItems(List<String> productNames) async {
-    _items.removeWhere(
-      (item) => productNames.contains(item.name),
-    );
+    _items.removeWhere((item) => productNames.contains(item.name));
     notifyListeners();
     await _persist();
   }
