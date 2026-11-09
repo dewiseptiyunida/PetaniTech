@@ -15,7 +15,7 @@ import { formatRupiah, formatDate } from '@/utils/formatters';
 import { resolveProductImage } from '@/utils/productImage';
 import { typography } from '@/theme/typography';
 import { useTheme } from '@/theme/ThemeContext';
-import { Truck, MapPin, ChevronRight, User } from 'lucide-react-native';
+import { Truck, MapPin, ChevronRight, User, Phone } from 'lucide-react-native';
 
 export interface OrderCardProps {
   order: Order;
@@ -129,6 +129,21 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               {order.buyerName}
             </Text>
           </View>
+
+          {order.buyerPhone ? (
+            <View style={styles.buyerPhoneBadge}>
+              <Phone size={10} color={isDark ? '#8BA899' : '#64746A'} />
+              <Text
+                style={[
+                  styles.buyerPhoneText,
+                  { color: isDark ? '#8BA899' : '#64746A' },
+                ]}
+                numberOfLines={1}
+              >
+                {order.buyerPhone}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Region 2: Delivery Address */}
@@ -311,6 +326,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: typography.fontFamily.bold,
     flexShrink: 1,
+  },
+  buyerPhoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+  },
+  buyerPhoneText: {
+    fontSize: 10.5,
+    fontFamily: typography.fontFamily.medium,
   },
   buyerAddressRow: {
     flexDirection: 'row',

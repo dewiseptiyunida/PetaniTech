@@ -518,6 +518,7 @@ export function OrdersScreen() {
                         styles.totalAmount,
                         { color: isDark ? '#ECF39E' : themeColors.primaryDark },
                       ]}
+                      numberOfLines={1}
                     >
                       {formatRupiah(order.totalAmount)}
                     </Text>
@@ -1272,8 +1273,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
     borderTopWidth: 1,
+    gap: 8,
   },
   totalCol: {
+    flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   totalLabel: {
@@ -1290,6 +1294,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 0,
   },
   modalBackdrop: {
     flex: 1,

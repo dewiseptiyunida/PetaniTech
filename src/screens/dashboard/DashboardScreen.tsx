@@ -328,7 +328,7 @@ export function DashboardScreen() {
                     source={{
                       uri:
                         user?.avatar ||
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+                        'src/assets/fhd.jpeg',
                     }}
                     style={[
                       styles.avatar,
@@ -1082,6 +1082,7 @@ export function DashboardScreen() {
                         styles.orderBuyer,
                         { color: themeColors.text },
                       ]}
+                      numberOfLines={1}
                     >
                       {order.buyerName}
                     </Text>
@@ -1100,10 +1101,10 @@ export function DashboardScreen() {
                       order.status === 'Selesai'
                         ? (isDark ? styles.statusSuccessDark : styles.statusSuccessLight)
                         : order.status === 'Diproses'
-                        ? (isDark ? styles.statusBrandDark : styles.statusBrandLight)
-                        : order.status === 'Dibatalkan'
-                        ? (isDark ? styles.statusDangerDark : styles.statusDangerLight)
-                        : (isDark ? styles.statusWarningDark : styles.statusWarningLight),
+                          ? (isDark ? styles.statusBrandDark : styles.statusBrandLight)
+                          : order.status === 'Dibatalkan'
+                            ? (isDark ? styles.statusDangerDark : styles.statusDangerLight)
+                            : (isDark ? styles.statusWarningDark : styles.statusWarningLight),
                     ]}
                   >
                     <Text
@@ -1112,10 +1113,10 @@ export function DashboardScreen() {
                         order.status === 'Selesai'
                           ? (isDark ? styles.statusTextSuccessDark : styles.statusTextSuccessLight)
                           : order.status === 'Diproses'
-                          ? (isDark ? styles.statusTextBrandDark : styles.statusTextBrandLight)
-                          : order.status === 'Dibatalkan'
-                          ? (isDark ? styles.statusTextDangerDark : styles.statusTextDangerLight)
-                          : (isDark ? styles.statusTextWarningDark : styles.statusTextWarningLight),
+                            ? (isDark ? styles.statusTextBrandDark : styles.statusTextBrandLight)
+                            : order.status === 'Dibatalkan'
+                              ? (isDark ? styles.statusTextDangerDark : styles.statusTextDangerLight)
+                              : (isDark ? styles.statusTextWarningDark : styles.statusTextWarningLight),
                       ]}
                     >
                       {order.status}
@@ -1217,6 +1218,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
+    flexShrink: 0,
   },
   actionCircleBtn: {
     width: 34,
@@ -1287,6 +1289,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 12,
     borderWidth: 1,
+    flexShrink: 0,
   },
   verifiedPillText: {
     fontSize: 9.5,
@@ -1804,8 +1807,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
+    gap: 10,
   },
   orderLeft: {
+    flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   orderNumber: {
@@ -1827,6 +1833,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3.5,
     borderRadius: 12,
     borderWidth: 1,
+    flexShrink: 0,
   },
   orderStatusText: {
     fontSize: 10.5,
